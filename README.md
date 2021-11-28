@@ -1,3 +1,9 @@
+## Efficient Off-chain Recorder/Replayer for Ethereum
+
+The repository is an updated version for https://github.com/verovm/usenix-atc21 and is developed based on Geth v1.10.13.
+
+Thanks for the help from the original author **Yeonsoo Kim**.
+
 ## Go Ethereum
 
 Official Golang implementation of the Ethereum protocol.
