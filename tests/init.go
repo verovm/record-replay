@@ -197,6 +197,9 @@ var Forks = map[string]*params.ChainConfig{
 		LondonBlock:         big.NewInt(0),
 		ArrowGlacierBlock:   big.NewInt(0),
 	},
+
+	// stage1-substate: mainnet chain config
+	"Mainnet": params.MainnetChainConfig,
 }
 
 // Returns the set of defined fork names

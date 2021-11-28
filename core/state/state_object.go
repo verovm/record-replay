@@ -91,6 +91,9 @@ type stateObject struct {
 	dirtyCode bool // true if the code was updated
 	suicided  bool
 	deleted   bool
+
+	// stage1-substate: stateObject.ResearchTouched
+	ResearchTouched map[common.Hash]struct{}
 }
 
 // empty returns whether the account is considered empty.
@@ -117,6 +120,8 @@ func newObject(db *StateDB, address common.Address, data types.StateAccount) *st
 		originStorage:  make(Storage),
 		pendingStorage: make(Storage),
 		dirtyStorage:   make(Storage),
+		// stage1-substate: init stateObject.ResearchTouched
+		ResearchTouched: make(map[common.Hash]struct{}),
 	}
 }
 
@@ -170,6 +175,10 @@ func (s *stateObject) getTrie(db Database) Trie {
 
 // GetState retrieves a value from the account storage trie.
 func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
+	// stage1-substate: mark keys touched by GetState
+	if _, exist := s.ResearchTouched[key]; !exist {
+		s.ResearchTouched[key] = struct{}{}
+	}
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
 		return s.fakeStorage[key]
@@ -315,6 +324,8 @@ func (s *stateObject) finalise(prefetch bool) {
 	if len(s.dirtyStorage) > 0 {
 		s.dirtyStorage = make(Storage)
 	}
+	// stage1-substate: clear stateObject.ResearchTouched
+	s.ResearchTouched = make(map[common.Hash]struct{})
 }
 
 // updateTrie writes cached storage modifications into the object's storage trie.
@@ -456,6 +467,13 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 	stateObject.suicided = s.suicided
 	stateObject.dirtyCode = s.dirtyCode
 	stateObject.deleted = s.deleted
+
+	// stage1-substate: deepCopy stateObject.ResearchTouched
+	stateObject.ResearchTouched = make(map[common.Hash]struct{})
+	for key := range s.ResearchTouched {
+		stateObject.ResearchTouched[key] = struct{}{}
+	}
+
 	return stateObject
 }
 

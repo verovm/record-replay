@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/research"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -69,6 +70,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
+
+		// stage1-substate: Finalise all DAO accounts, don't save them in substate
+		if config := p.config; config.IsByzantium(header.Number) {
+			statedb.Finalise(true)
+		} else {
+			statedb.Finalise(config.IsEIP158(header.Number))
+		}
+
 	}
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
@@ -80,6 +89,19 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		statedb.Prepare(tx.Hash(), i)
 		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
+
+		// stage1-substate: save tx substate into DBs, merge block hashes to env
+		if researchMsg, researchErr := tx.AsMessage(types.MakeSigner(p.config, header.Number), header.BaseFee); researchErr == nil {
+			researchSubstate := research.NewSubstate(
+				statedb.ResearchPreAlloc,
+				statedb.ResearchPostAlloc,
+				research.NewSubstateEnv(block, statedb.ResearchBlockHashes),
+				research.NewSubstateMessage(&researchMsg),
+				research.NewSubstateResult(receipt),
+			)
+			research.PutSubstate(block.NumberU64(), i, researchSubstate)
+		}
+
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
