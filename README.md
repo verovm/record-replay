@@ -1,3 +1,11 @@
+# Ethereum Substate Recorder/Replayer
+
+This `usenix-atc21` branch is to archive `record-replay` directory used for experiments in the paper:
+
+**Yeonsoo Kim, Seongho Jeong, Kamil Jezek, Bernd Burgstaller, and Bernhard Scholz**: _An Off-The-Chain Execution Environment for Scalable Testing and Profiling of Smart Contracts_,  USENIX ATC'21
+
+Visit [verovm/usenix-atc21](https://github.com/verovm/usenix-atc21) repository for more details.
+
 ## Go Ethereum
 
 Official Golang implementation of the Ethereum protocol.

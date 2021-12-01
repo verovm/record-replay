@@ -247,6 +247,8 @@ func init() {
 		retestethCommand,
 		// See cmd/utils/flags_legacy.go
 		utils.ShowDeprecated,
+		// stage1-substate: export-substate command
+		exportSubstateCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 

@@ -32,6 +32,9 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+
+	// stage1-substate: import research
+	"github.com/ethereum/go-ethereum/research"
 )
 
 type revision struct {
@@ -113,6 +116,11 @@ type StateDB struct {
 	SnapshotAccountReads time.Duration
 	SnapshotStorageReads time.Duration
 	SnapshotCommits      time.Duration
+
+	// stage1-substate: ResearchPreAlloc, ResearchPostAlloc, ResearchBlockHashes of StateDB
+	ResearchPreAlloc    research.SubstateAlloc
+	ResearchPostAlloc   research.SubstateAlloc
+	ResearchBlockHashes map[uint64]common.Hash
 }
 
 // Create a new state from a given trie.
@@ -139,6 +147,12 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 			sdb.snapStorage = make(map[common.Hash]map[common.Hash][]byte)
 		}
 	}
+
+	// stage1-substate: init StateDB.Research*
+	sdb.ResearchPreAlloc = make(research.SubstateAlloc)
+	sdb.ResearchPostAlloc = make(research.SubstateAlloc)
+	sdb.ResearchBlockHashes = make(map[uint64]common.Hash)
+
 	return sdb, nil
 }
 
@@ -180,6 +194,12 @@ func (s *StateDB) Reset(root common.Hash) error {
 			s.snapStorage = make(map[common.Hash]map[common.Hash][]byte)
 		}
 	}
+
+	// stage1-substate: reset StateDB.Research*
+	s.ResearchPreAlloc = make(research.SubstateAlloc)
+	s.ResearchPostAlloc = make(research.SubstateAlloc)
+	s.ResearchBlockHashes = make(map[uint64]common.Hash)
+
 	return nil
 }
 
@@ -489,8 +509,21 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 // to differentiate between non-existent/just-deleted, use getDeletedStateObject.
 func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	if obj := s.getDeletedStateObject(addr); obj != nil && !obj.deleted {
+
+		// stage1-substate: insert the account in StateDB.ResearchPreAlloc
+		if _, exist := s.ResearchPreAlloc[addr]; !exist {
+			s.ResearchPreAlloc[addr] = research.NewSubstateAccount(obj.Nonce(), obj.Balance(), obj.Code(s.db))
+		}
+
 		return obj
 	}
+
+	// stage1-substate: insert empty account in StateDB.ResearchPreAlloc
+	// This will prevent insertion of new account created in txs
+	if _, exist := s.ResearchPreAlloc[addr]; !exist {
+		s.ResearchPreAlloc[addr] = nil
+	}
+
 	return nil
 }
 
@@ -696,6 +729,21 @@ func (s *StateDB) Copy() *StateDB {
 	for hash, preimage := range s.preimages {
 		state.preimages[hash] = preimage
 	}
+
+	// stage1-substate: copy StateDB.Research*
+	state.ResearchPreAlloc = make(research.SubstateAlloc)
+	state.ResearchPostAlloc = make(research.SubstateAlloc)
+	state.ResearchBlockHashes = make(map[uint64]common.Hash)
+	for addr, account := range s.ResearchPreAlloc {
+		state.ResearchPreAlloc[addr] = account.Copy()
+	}
+	for addr, account := range s.ResearchPostAlloc {
+		state.ResearchPostAlloc[addr] = account.Copy()
+	}
+	for num64, bhash := range s.ResearchBlockHashes {
+		state.ResearchBlockHashes[num64] = bhash
+	}
+
 	return state
 }
 
@@ -732,6 +780,21 @@ func (s *StateDB) GetRefund() uint64 {
 // the journal as well as the refunds. Finalise, however, will not push any updates
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
+
+	// stage1-substate: copy original storage values to Prestate and Poststate
+	for addr, sa := range s.ResearchPreAlloc {
+		if sa == nil {
+			delete(s.ResearchPreAlloc, addr)
+			continue
+		}
+
+		obj := s.stateObjects[addr]
+		for key := range obj.ResearchTouched {
+			sa.Storage[key] = obj.GetCommittedState(s.db, key)
+		}
+		s.ResearchPostAlloc[addr] = sa.Copy()
+	}
+
 	for addr := range s.journal.dirties {
 		obj, exist := s.stateObjects[addr]
 		if !exist {
@@ -755,7 +818,19 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 				delete(s.snapAccounts, obj.addrHash)       // Clear out any previously updated account data (may be recreated via a ressurrect)
 				delete(s.snapStorage, obj.addrHash)        // Clear out any previously updated storage data (may be recreated via a ressurrect)
 			}
+
+			// stage1-substate: delete account from StateDB.ResearchPostAlloc
+			delete(s.ResearchPostAlloc, addr)
+
 		} else {
+
+			// stage1-substate: copy dirty account to StateDB.ResearchPostAlloc
+			sa := research.NewSubstateAccount(obj.Nonce(), obj.Balance(), obj.Code(s.db))
+			for key := range obj.ResearchTouched {
+				sa.Storage[key] = obj.GetState(s.db, key)
+			}
+			s.ResearchPostAlloc[addr] = sa
+
 			obj.finalise()
 		}
 		s.stateObjectsPending[addr] = struct{}{}
@@ -797,6 +872,15 @@ func (s *StateDB) Prepare(thash, bhash common.Hash, ti int) {
 	s.thash = thash
 	s.bhash = bhash
 	s.txIndex = ti
+
+	// stage1-substate: reset StateDB.Research* and stateObject.Research*
+	s.ResearchPreAlloc = make(research.SubstateAlloc)
+	s.ResearchPostAlloc = make(research.SubstateAlloc)
+	s.ResearchBlockHashes = make(map[uint64]common.Hash)
+	for _, obj := range s.stateObjects {
+		obj.ResearchTouched = make(map[common.Hash]struct{})
+	}
+
 }
 
 func (s *StateDB) clearJournalAndRefund() {

@@ -22,6 +22,9 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	"golang.org/x/crypto/sha3"
+
+	// stage1-substate: import state
+	"github.com/ethereum/go-ethereum/core/state"
 )
 
 func opAdd(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
@@ -433,6 +436,15 @@ func opGasprice(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) (
 func opBlockhash(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	num := callContext.stack.peek()
 	num64, overflow := num.Uint64WithOverflow()
+
+	// stage1-substate: convert vm.StateDB to state.StateDB and save block hash
+	defer func() {
+		statedb, ok := interpreter.evm.StateDB.(*state.StateDB)
+		if ok {
+			statedb.ResearchBlockHashes[num64] = common.BytesToHash(num.Bytes())
+		}
+	}()
+
 	if overflow {
 		num.Clear()
 		return nil, nil

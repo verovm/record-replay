@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/research"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -64,11 +65,33 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
+
+		// stage1-substate: Finalise all DAO accounts, don't save them in substate
+		if config := p.config; config.IsByzantium(header.Number) {
+			statedb.Finalise(true)
+		} else {
+			statedb.Finalise(config.IsEIP158(header.Number))
+		}
+
 	}
+
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
+
+		// stage1-substate: save tx substate into DBs, merge block hashes to env
+		if researchMsg, researchErr := tx.AsMessage(types.MakeSigner(p.config, header.Number)); researchErr == nil {
+			researchSubstate := research.NewSubstate(
+				statedb.ResearchPreAlloc,
+				statedb.ResearchPostAlloc,
+				research.NewSubstateEnv(block, statedb.ResearchBlockHashes),
+				research.NewSubstateMessage(&researchMsg),
+				research.NewSubstateResult(receipt),
+			)
+			research.PutSubstate(block.NumberU64(), i, researchSubstate)
+		}
+
 		if err != nil {
 			return nil, nil, 0, err
 		}

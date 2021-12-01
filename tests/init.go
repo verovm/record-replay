@@ -153,6 +153,9 @@ var Forks = map[string]*params.ChainConfig{
 		IstanbulBlock:       big.NewInt(0),
 		YoloV1Block:         big.NewInt(0),
 	},
+
+	// stage1-substate: mainnet chain config
+	"Mainnet": params.MainnetChainConfig,
 }
 
 // Returns the set of defined fork names

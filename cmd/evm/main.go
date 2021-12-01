@@ -26,6 +26,9 @@ import (
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/internal/flags"
 	"gopkg.in/urfave/cli.v1"
+
+	// stage1-substate: import evm/research
+	"github.com/ethereum/go-ethereum/cmd/evm/research"
 )
 
 var gitCommit = "" // Git SHA1 commit hash of the release (set via linker flags)
@@ -158,6 +161,57 @@ var stateTransitionCommand = cli.Command{
 	},
 }
 
+// stage1-substate: t8n-substate command
+var stateTransitionSubstateCommand = cli.Command{
+	Action:    research.TransitionSubstate,
+	Name:      "t8n-substate",
+	Aliases:   []string{"t8n-substate"},
+	Usage:     "executes full state transitions and check output consistency",
+	ArgsUsage: "<blockNumFirst> <blockNumLast>",
+	Flags: []cli.Flag{
+		research.WorkersFlag,
+		research.SkipTransferTxsFlag,
+		research.SkipCallTxsFlag,
+		research.SkipCreateTxsFlag,
+	},
+	Description: `
+The transition-substate (t8n-substate) command requires
+two arguments: <blockNumFirst> <blockNumLast>
+<blockNumFirst> and <blockNumLast> are the first and
+last block of the inclusive range of blocks to replay transactions.`,
+}
+
+// stage1-substate: dump-substate command
+var dumpSubstateCommand = cli.Command{
+	Action:    research.DumpSubstate,
+	Name:      "dump-substate",
+	Usage:     "dump a range of substates into target LevelDB",
+	ArgsUsage: "<targetPath> <blockNumFirst> <blockNumLast>",
+	Flags: []cli.Flag{
+		research.WorkersFlag,
+	},
+	Description: `
+The dump-substate command requires three arguments:
+<targetPath> <blockNumFirst> <blockNumLast>
+<targetPath> is the target LevelDB where to dump substate.
+<blockNumFirst> and <blockNumLast> are the first and
+last block of the inclusive range of blocks to replay transactions.`,
+}
+
+// stage1-substate: size-substate command
+var sizeSubstateCommand = cli.Command{
+	Action:    research.SizeSubstate,
+	Name:      "size-substate",
+	Usage:     "calculate size of decompressed values in substate DB",
+	ArgsUsage: "<blockNumFirst> <blockNumLast>",
+	Flags:     []cli.Flag{},
+	Description: `
+The size-substate command requires two arguments:
+<blockNumFirst> <blockNumLast>
+<blockNumFirst> and <blockNumLast> are the first and
+last block of the inclusive range of blocks to replay transactions.`,
+}
+
 func init() {
 	app.Flags = []cli.Flag{
 		BenchFlag,
@@ -191,6 +245,12 @@ func init() {
 		runCommand,
 		stateTestCommand,
 		stateTransitionCommand,
+		// stage1-substate: transition-substate (t8n-substate) command
+		stateTransitionSubstateCommand,
+		// stage1-substate: dump-substate command
+		dumpSubstateCommand,
+		// stage1-substate: size-substate command
+		sizeSubstateCommand,
 	}
 	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
 }
