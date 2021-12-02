@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethdb/leveldb"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/research"
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -51,14 +51,14 @@ func clone(ctx *cli.Context) error {
 		return fmt.Errorf("substate-cli db clone: error: first block has larger number than last block")
 	}
 
-	srcBackend, err := leveldb.New(srcPath, 1024, 100, "srcDB", true)
+	srcBackend, err := rawdb.NewLevelDBDatabase(srcPath, 1024, 100, "srcDB", true)
 	if err != nil {
 		return fmt.Errorf("substate-cli db clone: error opening %s: %v", srcPath, err)
 	}
 	srcDB := research.NewSubstateDB(srcBackend)
 
 	// Create dst DB
-	dstBackend, err := leveldb.New(srcPath, 1024, 100, "srcDB", false)
+	dstBackend, err := rawdb.NewLevelDBDatabase(dstPath, 1024, 100, "srcDB", false)
 	if err != nil {
 		return fmt.Errorf("substate-cli db clone: error creating %s: %v", dstPath, err)
 	}

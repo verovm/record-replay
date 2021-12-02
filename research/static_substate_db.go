@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethdb/leveldb"
-	"github.com/ethereum/go-ethereum/ethdb/memorydb"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -21,7 +20,7 @@ var (
 
 func OpenSubstateDB() {
 	fmt.Println("record-replay: OpenSubstateDB")
-	backend, err := leveldb.New(substateDir, 1024, 100, "substatedir", false)
+	backend, err := rawdb.NewLevelDBDatabase(substateDir, 1024, 100, "substatedir", false)
 	if err != nil {
 		panic(fmt.Errorf("error opening substate leveldb %s: %v", substateDir, err))
 	}
@@ -30,7 +29,7 @@ func OpenSubstateDB() {
 
 func OpenSubstateDBReadOnly() {
 	fmt.Println("record-replay: OpenSubstateDB")
-	backend, err := leveldb.New(substateDir, 1024, 100, "substatedir", true)
+	backend, err := rawdb.NewLevelDBDatabase(substateDir, 1024, 100, "substatedir", true)
 	if err != nil {
 		panic(fmt.Errorf("error opening substate leveldb %s: %v", substateDir, err))
 	}
@@ -57,7 +56,7 @@ func CompactSubstateDB() {
 }
 
 func OpenFakeSubstateDB() {
-	backend := memorydb.New()
+	backend := rawdb.NewMemoryDatabase()
 	staticSubstateDB = NewSubstateDB(backend)
 }
 
