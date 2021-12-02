@@ -31,7 +31,7 @@ The substate db upgrade command requires two arguments:
 <substate.ethereum> is new unified DB layout. First 2 bytes of a key in substate DB
 represents different data types as follows:
 - 1s: substateRLP, a key is "1s"+N+T with transaction index T at block N.
-T and N are encoded in big-endian 64-bit binary.
+T and N are encoded in a big-endian 64-bit binary.
 - 1c: code, a key is "1c"+codeHash where codeHash is Keccak256 hash of the bytecode.
 `,
 }
