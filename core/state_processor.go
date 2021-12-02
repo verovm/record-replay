@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/research"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -66,7 +67,16 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
+
+		// record-replay: Finalise all DAO accounts, don't save them in substate
+		if config := p.config; config.IsByzantium(header.Number) {
+			statedb.Finalise(true)
+		} else {
+			statedb.Finalise(config.IsEIP158(header.Number))
+		}
+
 	}
+
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
 	// Iterate over and process the individual transactions
@@ -80,6 +90,16 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
+
+		// record-replay: save tx substate into DBs, merge block hashes to env
+		researchSubstate := research.NewSubstate(
+			statedb.ResearchPreAlloc,
+			statedb.ResearchPostAlloc,
+			research.NewSubstateEnv(block, statedb.ResearchBlockHashes),
+			research.NewSubstateMessage(&msg),
+			research.NewSubstateResult(receipt),
+		)
+		research.PutSubstate(block.NumberU64(), i, researchSubstate)
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}

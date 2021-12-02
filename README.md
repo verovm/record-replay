@@ -1,3 +1,13 @@
+# Ethereum Substate Recorder/Replayer
+
+Ethereum substate recorder/replayer based on the paper:
+
+**Yeonsoo Kim, Seongho Jeong, Kamil Jezek, Bernd Burgstaller, and Bernhard Scholz**: _An Off-The-Chain Execution Environment for Scalable Testing and Profiling of Smart Contracts_,  USENIX ATC'21
+
+See [research/README.md](research/README.md) to find how to use substate recorder/replayer.
+
+Visit [verovm/usenix-atc21](https://github.com/verovm/usenix-atc21) repository for software artifact from the ATC'21 paper.
+
 ## Go Ethereum
 
 Official Golang implementation of the Ethereum protocol.
