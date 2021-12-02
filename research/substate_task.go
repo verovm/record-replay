@@ -46,9 +46,6 @@ type SubstateTaskPool struct {
 
 	Ctx *cli.Context // CLI context required to read additional flags
 
-	SharedData     interface{}
-	SharedDataLock *sync.RWMutex
-
 	DB *SubstateDB
 }
 
@@ -69,11 +66,6 @@ func NewSubstateTaskPool(name string, taskFunc SubstateTaskFunc, first, last uin
 
 		DB: staticSubstateDB,
 	}
-}
-
-func (pool *SubstateTaskPool) InitSharedData(data interface{}) {
-	pool.SharedData = data
-	pool.SharedDataLock = &sync.RWMutex{}
 }
 
 // ExecuteBlock function iterates on substates of a given block call TaskFunc
