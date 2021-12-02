@@ -148,29 +148,24 @@ func (db *SubstateDB) GetSubstate(block uint64, tx int) *Substate {
 	var err error
 
 	key := Stage1SubstateKey(block, tx)
-	defer func() {
-		if err != nil {
-			panic(fmt.Errorf("record-replay: error getting substate %v_%v from substate DB: %v,", block, tx, err))
-		}
-	}()
-
 	value, err := db.backend.Get(key)
 	if err != nil {
-		return nil
+		panic(fmt.Errorf("record-replay: error getting substate %v_%v from substate DB: %v,", block, tx, err))
+	}
+
+	substateRLP := SubstateRLP{}
+	err = rlp.DecodeBytes(value, &substateRLP)
+	if err != nil {
+		legacyRLP := legacySubstateRLP{}
+		err = rlp.DecodeBytes(value, &legacyRLP)
+		if err != nil {
+			panic(fmt.Errorf("error decoding substateRLP %v_%v: %v", block, tx, err))
+		}
+		substateRLP.setLegacyRLP(&legacyRLP)
 	}
 
 	substate := Substate{}
-
-	substate.InputAlloc = make(SubstateAlloc)
-	substate.OutputAlloc = make(SubstateAlloc)
-	substate.Env = &SubstateEnv{}
-	substate.Message = &SubstateMessage{}
-	substate.Result = &SubstateResult{}
-
-	err = rlp.DecodeBytes(value, &substate)
-	if err != nil {
-		panic(fmt.Errorf("error decoding substate %v_%v: %v", block, tx, err))
-	}
+	substate.SetRLP(&substateRLP, db)
 
 	return &substate
 }
@@ -196,18 +191,14 @@ func (db *SubstateDB) GetBlockSubstates(block uint64) map[int]*Substate {
 			panic(fmt.Errorf("record-replay: GetBlockSubstates(%v) iterated substates from block %v", block, b))
 		}
 
-		substate := Substate{}
-
-		substate.InputAlloc = make(SubstateAlloc)
-		substate.OutputAlloc = make(SubstateAlloc)
-		substate.Env = &SubstateEnv{}
-		substate.Message = &SubstateMessage{}
-		substate.Result = &SubstateResult{}
-
-		err = rlp.DecodeBytes(value, &substate)
+		substateRLP := SubstateRLP{}
+		err = rlp.DecodeBytes(value, &substateRLP)
 		if err != nil {
 			panic(fmt.Errorf("error decoding substate %v_%v: %v", block, tx, err))
 		}
+
+		substate := Substate{}
+		substate.SetRLP(&substateRLP, db)
 
 		txSubstate[tx] = &substate
 	}
@@ -241,7 +232,8 @@ func (db *SubstateDB) PutSubstate(block uint64, tx int, substate *Substate) {
 		}
 	}()
 
-	value, err := rlp.EncodeToBytes(substate)
+	substateRLP := NewSubstateRLP(substate)
+	value, err := rlp.EncodeToBytes(substateRLP)
 	if err != nil {
 		panic(err)
 	}

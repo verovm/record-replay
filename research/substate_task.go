@@ -48,6 +48,8 @@ type SubstateTaskPool struct {
 
 	SharedData     interface{}
 	SharedDataLock *sync.RWMutex
+
+	DB *SubstateDB
 }
 
 func NewSubstateTaskPool(name string, taskFunc SubstateTaskFunc, first, last uint64, ctx *cli.Context) *SubstateTaskPool {
@@ -64,6 +66,8 @@ func NewSubstateTaskPool(name string, taskFunc SubstateTaskFunc, first, last uin
 		SkipCreateTxs:   ctx.Bool(SkipCreateTxsFlag.Name),
 
 		Ctx: ctx,
+
+		DB: staticSubstateDB,
 	}
 }
 
@@ -74,7 +78,7 @@ func (pool *SubstateTaskPool) InitSharedData(data interface{}) {
 
 // ExecuteBlock function iterates on substates of a given block call TaskFunc
 func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error) {
-	for tx, substate := range GetBlockSubstates(block) {
+	for tx, substate := range pool.DB.GetBlockSubstates(block) {
 		alloc := substate.InputAlloc
 		msg := substate.Message
 

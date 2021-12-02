@@ -3,8 +3,6 @@ package db
 import (
 	"fmt"
 	"strconv"
-	"sync/atomic"
-	"time"
 
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/research"
@@ -31,8 +29,6 @@ last block of the inclusive range of blocks to clone.`,
 func clone(ctx *cli.Context) error {
 	var err error
 
-	start := time.Now()
-
 	if len(ctx.Args()) != 4 {
 		return fmt.Errorf("substate-cli db clone command requires exactly 4 arguments")
 	}
@@ -56,6 +52,7 @@ func clone(ctx *cli.Context) error {
 		return fmt.Errorf("substate-cli db clone: error opening %s: %v", srcPath, err)
 	}
 	srcDB := research.NewSubstateDB(srcBackend)
+	defer srcDB.Close()
 
 	// Create dst DB
 	dstBackend, err := rawdb.NewLevelDBDatabase(dstPath, 1024, 100, "srcDB", false)
@@ -63,45 +60,15 @@ func clone(ctx *cli.Context) error {
 		return fmt.Errorf("substate-cli db clone: error creating %s: %v", dstPath, err)
 	}
 	dstDB := research.NewSubstateDB(dstBackend)
+	defer dstDB.Close()
 
-	var totalNumBlock, totalNumTx int64
-	var lastSec float64
-	var lastNumBlock, lastNumTx int64
-
-	firstU64 := uint64(first)
-	lastU64 := uint64(last)
-	for block := firstU64; block <= lastU64; block++ {
-		substates := srcDB.GetBlockSubstates(block)
-		for tx, substate := range substates {
-			dstDB.PutSubstate(block, tx, substate)
-		}
-		duration := time.Since(start) + 1*time.Nanosecond
-		sec := duration.Seconds()
-		if block == lastU64 ||
-			(block%10000 == 0 && sec > lastSec+5) ||
-			(block%1000 == 0 && sec > lastSec+10) ||
-			(block%100 == 0 && sec > lastSec+20) ||
-			(block%10 == 0 && sec > lastSec+40) ||
-			(sec > lastSec+60) {
-			nb, nt := atomic.LoadInt64(&totalNumBlock), atomic.LoadInt64(&totalNumTx)
-			blkPerSec := float64(nb-lastNumBlock) / (sec - lastSec)
-			txPerSec := float64(nt-lastNumTx) / (sec - lastSec)
-			fmt.Printf("substate-cli db clone: elapsed time: %v, number = %v\n", duration.Round(1*time.Millisecond), block)
-			fmt.Printf("substate-cli db clone: %.2f blk/s, %.2f tx/s\n", blkPerSec, txPerSec)
-
-			lastSec, lastNumBlock, lastNumTx = sec, nb, nt
-		}
+	cloneTask := func(block uint64, tx int, substate *research.Substate, taskPool *research.SubstateTaskPool) error {
+		dstDB.PutSubstate(block, tx, substate)
+		return nil
 	}
 
-	err = srcDB.Close()
-	if err != nil {
-		return fmt.Errorf("substate-cli db clone: error closing srcDB %s: %v", srcPath, err)
-	}
-
-	err = dstDB.Close()
-	if err != nil {
-		return fmt.Errorf("substate-cli db clone: error closing dstDB %s: %v", dstPath, err)
-	}
-
-	return nil
+	taskPool := research.NewSubstateTaskPool("substate-cli db clone", cloneTask, uint64(first), uint64(last), ctx)
+	taskPool.DB = srcDB
+	err = taskPool.Execute()
+	return err
 }

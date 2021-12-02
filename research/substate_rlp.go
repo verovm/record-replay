@@ -1,13 +1,11 @@
 package research
 
 import (
-	"io"
 	"math/big"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type SubstateAccountRLP struct {
@@ -38,32 +36,14 @@ func NewSubstateAccountRLP(sa *SubstateAccount) *SubstateAccountRLP {
 	return &saRLP
 }
 
-func (sa *SubstateAccount) SetRLP(saRLP *SubstateAccountRLP) {
+func (sa *SubstateAccount) SetRLP(saRLP *SubstateAccountRLP, db *SubstateDB) {
 	sa.Balance = saRLP.Balance
 	sa.Nonce = saRLP.Nonce
-	sa.Code = GetCode(saRLP.CodeHash)
+	sa.Code = db.GetCode(saRLP.CodeHash)
 	sa.Storage = make(map[common.Hash]common.Hash)
 	for i := range saRLP.Storage {
 		sa.Storage[saRLP.Storage[i][0]] = saRLP.Storage[i][1]
 	}
-}
-
-func (sa SubstateAccount) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, NewSubstateAccountRLP(&sa))
-}
-
-func (sa *SubstateAccount) DecodeRLP(s *rlp.Stream) error {
-	var err error
-	var saRLP SubstateAccountRLP
-
-	err = s.Decode(&saRLP)
-	if err != nil {
-		return err
-	}
-
-	sa.SetRLP(&saRLP)
-
-	return nil
 }
 
 type SubstateAllocRLP struct {
@@ -91,7 +71,7 @@ func NewSubstateAllocRLP(alloc SubstateAlloc) SubstateAllocRLP {
 	return allocRLP
 }
 
-func (alloc *SubstateAlloc) SetRLP(allocRLP SubstateAllocRLP) {
+func (alloc *SubstateAlloc) SetRLP(allocRLP SubstateAllocRLP, db *SubstateDB) {
 	*alloc = make(SubstateAlloc)
 	for i, addr := range allocRLP.Addresses {
 		var sa SubstateAccount
@@ -99,7 +79,7 @@ func (alloc *SubstateAlloc) SetRLP(allocRLP SubstateAllocRLP) {
 		saRLP := allocRLP.Accounts[i]
 		sa.Balance = saRLP.Balance
 		sa.Nonce = saRLP.Nonce
-		sa.Code = GetCode(saRLP.CodeHash)
+		sa.Code = db.GetCode(saRLP.CodeHash)
 		sa.Storage = make(map[common.Hash]common.Hash)
 		for i := range saRLP.Storage {
 			sa.Storage[saRLP.Storage[i][0]] = saRLP.Storage[i][1]
@@ -107,23 +87,6 @@ func (alloc *SubstateAlloc) SetRLP(allocRLP SubstateAllocRLP) {
 
 		(*alloc)[addr] = &sa
 	}
-}
-
-func (alloc SubstateAlloc) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, NewSubstateAllocRLP(alloc))
-}
-
-func (alloc *SubstateAlloc) DecodeRLP(s *rlp.Stream) (err error) {
-	var allocRLP SubstateAllocRLP
-
-	err = s.Decode(&allocRLP)
-	if err != nil {
-		return err
-	}
-
-	alloc.SetRLP(allocRLP)
-
-	return nil
 }
 
 type SubstateEnvRLP struct {
@@ -158,7 +121,7 @@ func NewSubstateEnvRLP(env *SubstateEnv) *SubstateEnvRLP {
 	return &envRLP
 }
 
-func (env *SubstateEnv) SetRLP(envRLP *SubstateEnvRLP) {
+func (env *SubstateEnv) SetRLP(envRLP *SubstateEnvRLP, db *SubstateDB) {
 	env.Coinbase = envRLP.Coinbase
 	env.Difficulty = envRLP.Difficulty
 	env.GasLimit = envRLP.GasLimit
@@ -171,24 +134,6 @@ func (env *SubstateEnv) SetRLP(envRLP *SubstateEnvRLP) {
 		bhash := pair[1]
 		env.BlockHashes[num64] = bhash
 	}
-}
-
-func (env SubstateEnv) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, NewSubstateEnvRLP(&env))
-}
-
-func (env *SubstateEnv) DecodeRLP(s *rlp.Stream) error {
-	var err error
-	var envRLP SubstateEnvRLP
-
-	err = s.Decode(&envRLP)
-	if err != nil {
-		return err
-	}
-
-	env.SetRLP(&envRLP)
-
-	return nil
 }
 
 type LegacySubstateMessageRLP struct {
@@ -278,7 +223,7 @@ func NewSubstateMessageRLP(msg *SubstateMessage) *SubstateMessageRLP {
 	return &msgRLP
 }
 
-func (msg *SubstateMessage) SetRLP(msgRLP *SubstateMessageRLP) {
+func (msg *SubstateMessage) SetRLP(msgRLP *SubstateMessageRLP, db *SubstateDB) {
 	msg.Nonce = msgRLP.Nonce
 	msg.CheckNonce = msgRLP.CheckNonce
 	msg.GasPrice = msgRLP.GasPrice
@@ -290,41 +235,10 @@ func (msg *SubstateMessage) SetRLP(msgRLP *SubstateMessageRLP) {
 	msg.Data = msgRLP.Data
 
 	if msgRLP.To == nil {
-		msg.Data = GetCode(*msgRLP.InitCodeHash)
+		msg.Data = db.GetCode(*msgRLP.InitCodeHash)
 	}
 
 	msg.AccessList = msgRLP.AccessList
-}
-
-func (msg SubstateMessage) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, NewSubstateMessageRLP(&msg))
-}
-
-func (msg *SubstateMessage) DecodeRLP(s *rlp.Stream) error {
-	var err error
-	var b []byte
-
-	b, err = s.Raw()
-	if err != nil {
-		return err
-	}
-
-	// try decoding bytes to message with access list
-	var msgRLP SubstateMessageRLP
-	err = rlp.DecodeBytes(b, &msgRLP)
-	if err != nil {
-		// try decoding bytes to message without access list
-		var lmsgRLP legacySubstateMessageRLP
-		err = rlp.DecodeBytes(b, &lmsgRLP)
-		if err != nil {
-			return err
-		}
-		msgRLP.setLegacyRLP(&lmsgRLP)
-	}
-
-	msg.SetRLP(&msgRLP)
-
-	return nil
 }
 
 type SubstateResultRLP struct {
@@ -349,31 +263,13 @@ func NewSubstateResultRLP(result *SubstateResult) *SubstateResultRLP {
 	return &resultRLP
 }
 
-func (result *SubstateResult) SetRLP(resultRLP *SubstateResultRLP) {
+func (result *SubstateResult) SetRLP(resultRLP *SubstateResultRLP, db *SubstateDB) {
 	result.Status = resultRLP.Status
 	result.Bloom = resultRLP.Bloom
 	result.Logs = resultRLP.Logs
 
 	result.ContractAddress = resultRLP.ContractAddress
 	result.GasUsed = resultRLP.GasUsed
-}
-
-func (result *SubstateResult) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, NewSubstateResultRLP(result))
-}
-
-func (result *SubstateResult) DecodeRLP(s *rlp.Stream) error {
-	var err error
-	var resultRLP SubstateResultRLP
-
-	err = s.Decode(&resultRLP)
-	if err != nil {
-		return err
-	}
-
-	result.SetRLP(&resultRLP)
-
-	return nil
 }
 
 type legacySubstateRLP struct {
@@ -413,41 +309,16 @@ func NewSubstateRLP(substate *Substate) *SubstateRLP {
 	return &substateRLP
 }
 
-func (substate *Substate) SetRLP(substateRLP *SubstateRLP) {
-	substate.InputAlloc.SetRLP(substateRLP.InputAlloc)
-	substate.OutputAlloc.SetRLP(substateRLP.OutputAlloc)
-	substate.Env.SetRLP(substateRLP.Env)
-	substate.Message.SetRLP(substateRLP.Message)
-	substate.Result.SetRLP(substateRLP.Result)
-}
+func (substate *Substate) SetRLP(substateRLP *SubstateRLP, db *SubstateDB) {
+	substate.InputAlloc = make(SubstateAlloc)
+	substate.OutputAlloc = make(SubstateAlloc)
+	substate.Env = &SubstateEnv{}
+	substate.Message = &SubstateMessage{}
+	substate.Result = &SubstateResult{}
 
-func (substate *Substate) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, NewSubstateRLP(substate))
-}
-
-func (substate *Substate) DecodeRLP(s *rlp.Stream) error {
-	var err error
-	var b []byte
-
-	b, err = s.Raw()
-	if err != nil {
-		return err
-	}
-
-	// try decoding bytes to substate with access list
-	var substateRLP SubstateRLP
-	err = rlp.DecodeBytes(b, &substateRLP)
-	if err != nil {
-		// try decoding bytes to substate without access list
-		var lsubstateRLP legacySubstateRLP
-		err = rlp.DecodeBytes(b, &lsubstateRLP)
-		if err != nil {
-			return err
-		}
-		substateRLP.setLegacyRLP(&lsubstateRLP)
-	}
-
-	substate.SetRLP(&substateRLP)
-
-	return nil
+	substate.InputAlloc.SetRLP(substateRLP.InputAlloc, db)
+	substate.OutputAlloc.SetRLP(substateRLP.OutputAlloc, db)
+	substate.Env.SetRLP(substateRLP.Env, db)
+	substate.Message.SetRLP(substateRLP.Message, db)
+	substate.Result.SetRLP(substateRLP.Result, db)
 }
