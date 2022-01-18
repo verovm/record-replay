@@ -175,6 +175,10 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	}
 
 	chainConfig := ReplayForkChainConfig
+	if chainConfig.IsLondon(blockCtx.BlockNumber) && blockCtx.BaseFee == nil {
+		// If blockCtx.BaseFee is nil, assume blockCtx.BaseFee is zero
+		blockCtx.BaseFee = new(big.Int)
+	}
 	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
 	snapshot := statedb.Snapshot()
 	msgResult, err := core.ApplyMessage(evm, msg, gaspool)
