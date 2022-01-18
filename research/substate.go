@@ -91,6 +91,9 @@ type SubstateEnv struct {
 	Number      uint64
 	Timestamp   uint64
 	BlockHashes map[uint64]common.Hash
+
+	// London hard fork, EIP-1559
+	BaseFee *big.Int // nil if EIP-1559 is not activated
 }
 
 func NewSubstateEnv(b *types.Block, blockHashes map[uint64]common.Hash) *SubstateEnv {
@@ -105,6 +108,8 @@ func NewSubstateEnv(b *types.Block, blockHashes map[uint64]common.Hash) *Substat
 	for num64, bhash := range blockHashes {
 		env.BlockHashes[num64] = bhash
 	}
+
+	env.BaseFee = b.BaseFee()
 
 	return env
 }
@@ -123,7 +128,8 @@ func (x *SubstateEnv) Equal(y *SubstateEnv) bool {
 		x.GasLimit == y.GasLimit &&
 		x.Number == y.Number &&
 		x.Timestamp == y.Timestamp &&
-		len(x.BlockHashes) == len(y.BlockHashes))
+		len(x.BlockHashes) == len(y.BlockHashes) &&
+		x.BaseFee.Cmp(y.BaseFee) == 0)
 	if !equal {
 		return false
 	}
@@ -152,8 +158,12 @@ type SubstateMessage struct {
 	// for memoization
 	dataHash *common.Hash
 
-	// EIP-2930: Optional access lists
-	AccessList types.AccessList
+	// Berlin hard fork, EIP-2930: Optional access lists
+	AccessList types.AccessList // nil if EIP-2930 is not activated
+
+	// London hard fork, EIP-1559: Fee market
+	GasFeeCap *big.Int // GasPrice if EIP-1559 is not activated
+	GasTipCap *big.Int // GasPrice if EIP-1559 is not activated
 }
 
 func NewSubstateMessage(msg *types.Message) *SubstateMessage {
@@ -170,6 +180,9 @@ func NewSubstateMessage(msg *types.Message) *SubstateMessage {
 	smsg.Data = msg.Data()
 
 	smsg.AccessList = msg.AccessList()
+
+	smsg.GasFeeCap = msg.GasFeeCap()
+	smsg.GasTipCap = msg.GasTipCap()
 
 	return smsg
 }
@@ -191,7 +204,9 @@ func (x *SubstateMessage) Equal(y *SubstateMessage) bool {
 		(x.To == y.To || (x.To != nil && y.To != nil && *x.To == *y.To)) &&
 		x.Value.Cmp(y.Value) == 0 &&
 		bytes.Equal(x.Data, y.Data) &&
-		len(x.AccessList) == len(y.AccessList))
+		len(x.AccessList) == len(y.AccessList) &&
+		x.GasFeeCap.Cmp(y.GasFeeCap) == 0 &&
+		x.GasTipCap.Cmp(y.GasTipCap) == 0)
 	if !equal {
 		return false
 	}
@@ -225,7 +240,8 @@ func (msg *SubstateMessage) DataHash() common.Hash {
 func (msg *SubstateMessage) AsMessage() types.Message {
 	return types.NewMessage(
 		msg.From, msg.To, msg.Nonce, msg.Value,
-		msg.Gas, msg.GasPrice, msg.Data, msg.AccessList, msg.CheckNonce)
+		msg.Gas, msg.GasPrice, msg.GasFeeCap, msg.GasTipCap,
+		msg.Data, msg.AccessList, msg.CheckNonce)
 }
 
 // modification of types.Receipt

@@ -95,7 +95,10 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 		Difficulty:  inputEnv.Difficulty,
 		GasLimit:    inputEnv.GasLimit,
 		GetHash:     getHash,
-		// GasPrice and Origin needs to be set per transaction
+	}
+	// If currentBaseFee is defined, add it to the vmContext.
+	if inputEnv.BaseFee != nil {
+		blockCtx.BaseFee = new(big.Int).Set(inputEnv.BaseFee)
 	}
 
 	msg := inputMessage.AsMessage()

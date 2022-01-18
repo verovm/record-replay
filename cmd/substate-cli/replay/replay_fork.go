@@ -53,6 +53,7 @@ var HardForkName = map[int64]string{
 	7_280_000:  "Constantinople + Petersburg",
 	9_069_000:  "Istanbul",
 	12_244_000: "Berlin",
+	12_965_000: "London",
 }
 
 func hardForkFlagDefault() int64 {
@@ -151,7 +152,10 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		Difficulty:  inputEnv.Difficulty,
 		GasLimit:    inputEnv.GasLimit,
 		GetHash:     getHash,
-		// GasPrice and Origin needs to be set per transaction
+	}
+	// If currentBaseFee is defined, add it to the vmContext.
+	if inputEnv.BaseFee != nil {
+		blockCtx.BaseFee = new(big.Int).Set(inputEnv.BaseFee)
 	}
 
 	msg := inputMessage.AsMessage()
@@ -320,6 +324,8 @@ func replayForkAction(ctx *cli.Context) error {
 		*ReplayForkChainConfig = *tests.Forks["Istanbul"]
 	case 12_244_000:
 		*ReplayForkChainConfig = *tests.Forks["Berlin"]
+	case 12_965_000:
+		*ReplayForkChainConfig = *tests.Forks["London"]
 	}
 
 	research.SetSubstateFlags(ctx)

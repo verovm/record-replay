@@ -89,6 +89,24 @@ func (alloc *SubstateAlloc) SetRLP(allocRLP SubstateAllocRLP, db *SubstateDB) {
 	}
 }
 
+type legacySubstateEnvRLP struct {
+	Coinbase    common.Address
+	Difficulty  *big.Int
+	GasLimit    uint64
+	Number      uint64
+	Timestamp   uint64
+	BlockHashes [][2]common.Hash
+}
+
+func (envRLP *SubstateEnvRLP) setLegacyRLP(lenvRLP *legacySubstateEnvRLP) {
+	envRLP.Coinbase = lenvRLP.Coinbase
+	envRLP.Difficulty = lenvRLP.Difficulty
+	envRLP.GasLimit = lenvRLP.GasLimit
+	envRLP.Number = lenvRLP.Number
+	envRLP.Timestamp = lenvRLP.Timestamp
+	envRLP.BlockHashes = lenvRLP.BlockHashes
+}
+
 type SubstateEnvRLP struct {
 	Coinbase    common.Address
 	Difficulty  *big.Int
@@ -96,6 +114,8 @@ type SubstateEnvRLP struct {
 	Number      uint64
 	Timestamp   uint64
 	BlockHashes [][2]common.Hash
+
+	BaseFee *big.Int `rlp:"nil"` // missing in substate DB from Geth <= v1.10.3
 }
 
 func NewSubstateEnvRLP(env *SubstateEnv) *SubstateEnvRLP {
@@ -118,6 +138,8 @@ func NewSubstateEnvRLP(env *SubstateEnv) *SubstateEnvRLP {
 		envRLP.BlockHashes = append(envRLP.BlockHashes, pair)
 	}
 
+	envRLP.BaseFee = env.BaseFee
+
 	return &envRLP
 }
 
@@ -134,20 +156,8 @@ func (env *SubstateEnv) SetRLP(envRLP *SubstateEnvRLP, db *SubstateDB) {
 		bhash := pair[1]
 		env.BlockHashes[num64] = bhash
 	}
-}
 
-type LegacySubstateMessageRLP struct {
-	Nonce      uint64
-	CheckNonce bool
-	GasPrice   *big.Int
-	Gas        uint64
-
-	From  common.Address
-	To    *common.Address `rlp:"nil"` // nil means contract creation
-	Value *big.Int
-	Data  []byte
-
-	InitCodeHash *common.Hash `rlp:"nil"` // NOT nil for contract creation
+	env.BaseFee = envRLP.BaseFee
 }
 
 type legacySubstateMessageRLP struct {
@@ -178,6 +188,46 @@ func (msgRLP *SubstateMessageRLP) setLegacyRLP(lmsgRLP *legacySubstateMessageRLP
 	msgRLP.InitCodeHash = lmsgRLP.InitCodeHash
 
 	msgRLP.AccessList = nil
+
+	// Same behavior as LegacyTx.gasFeeCap() and LegacyTx.gasTipCap()
+	msgRLP.GasFeeCap = lmsgRLP.GasPrice
+	msgRLP.GasTipCap = lmsgRLP.GasPrice
+}
+
+type berlinSubstateMessageRLP struct {
+	Nonce      uint64
+	CheckNonce bool
+	GasPrice   *big.Int
+	Gas        uint64
+
+	From  common.Address
+	To    *common.Address `rlp:"nil"` // nil means contract creation
+	Value *big.Int
+	Data  []byte
+
+	InitCodeHash *common.Hash `rlp:"nil"` // NOT nil for contract creation
+
+	AccessList types.AccessList // missing in substate DB from Geth v1.9.x
+}
+
+func (msgRLP *SubstateMessageRLP) setBerlinRLP(bmsgRLP *berlinSubstateMessageRLP) {
+	msgRLP.Nonce = bmsgRLP.Nonce
+	msgRLP.CheckNonce = bmsgRLP.CheckNonce
+	msgRLP.GasPrice = bmsgRLP.GasPrice
+	msgRLP.Gas = bmsgRLP.Gas
+
+	msgRLP.From = bmsgRLP.From
+	msgRLP.To = bmsgRLP.To
+	msgRLP.Value = new(big.Int).Set(bmsgRLP.Value)
+	msgRLP.Data = bmsgRLP.Data
+
+	msgRLP.InitCodeHash = bmsgRLP.InitCodeHash
+
+	msgRLP.AccessList = nil
+
+	// Same behavior as LegacyTx.gasFeeCap() and LegacyTx.gasTipCap()
+	msgRLP.GasFeeCap = bmsgRLP.GasPrice
+	msgRLP.GasTipCap = bmsgRLP.GasPrice
 }
 
 type SubstateMessageRLP struct {
@@ -194,6 +244,9 @@ type SubstateMessageRLP struct {
 	InitCodeHash *common.Hash `rlp:"nil"` // NOT nil for contract creation
 
 	AccessList types.AccessList // missing in substate DB from Geth v1.9.x
+
+	GasFeeCap *big.Int // missing in substate DB from Geth <= v1.10.3
+	GasTipCap *big.Int // missing in substate DB from Geth <= v1.10.3
 }
 
 func NewSubstateMessageRLP(msg *SubstateMessage) *SubstateMessageRLP {
@@ -220,6 +273,9 @@ func NewSubstateMessageRLP(msg *SubstateMessage) *SubstateMessageRLP {
 
 	msgRLP.AccessList = msg.AccessList
 
+	msgRLP.GasFeeCap = msg.GasFeeCap
+	msgRLP.GasTipCap = msg.GasTipCap
+
 	return &msgRLP
 }
 
@@ -239,6 +295,9 @@ func (msg *SubstateMessage) SetRLP(msgRLP *SubstateMessageRLP, db *SubstateDB) {
 	}
 
 	msg.AccessList = msgRLP.AccessList
+
+	msg.GasFeeCap = msgRLP.GasFeeCap
+	msg.GasTipCap = msgRLP.GasTipCap
 }
 
 type SubstateResultRLP struct {
@@ -275,7 +334,7 @@ func (result *SubstateResult) SetRLP(resultRLP *SubstateResultRLP, db *SubstateD
 type legacySubstateRLP struct {
 	InputAlloc  SubstateAllocRLP
 	OutputAlloc SubstateAllocRLP
-	Env         *SubstateEnvRLP
+	Env         *legacySubstateEnvRLP
 	Message     *legacySubstateMessageRLP
 	Result      *SubstateResultRLP
 }
@@ -283,10 +342,29 @@ type legacySubstateRLP struct {
 func (substateRLP *SubstateRLP) setLegacyRLP(lsubstateRLP *legacySubstateRLP) {
 	substateRLP.InputAlloc = lsubstateRLP.InputAlloc
 	substateRLP.OutputAlloc = lsubstateRLP.OutputAlloc
-	substateRLP.Env = lsubstateRLP.Env
+	substateRLP.Env = &SubstateEnvRLP{}
+	substateRLP.Env.setLegacyRLP(lsubstateRLP.Env)
 	substateRLP.Message = &SubstateMessageRLP{}
 	substateRLP.Message.setLegacyRLP(lsubstateRLP.Message)
 	substateRLP.Result = lsubstateRLP.Result
+}
+
+type berlinSubstateRLP struct {
+	InputAlloc  SubstateAllocRLP
+	OutputAlloc SubstateAllocRLP
+	Env         *legacySubstateEnvRLP
+	Message     *berlinSubstateMessageRLP
+	Result      *SubstateResultRLP
+}
+
+func (substateRLP *SubstateRLP) setBerlinRLP(bsubstateRLP *berlinSubstateRLP) {
+	substateRLP.InputAlloc = bsubstateRLP.InputAlloc
+	substateRLP.OutputAlloc = bsubstateRLP.OutputAlloc
+	substateRLP.Env = &SubstateEnvRLP{}
+	substateRLP.Env.setLegacyRLP(bsubstateRLP.Env)
+	substateRLP.Message = &SubstateMessageRLP{}
+	substateRLP.Message.setBerlinRLP(bsubstateRLP.Message)
+	substateRLP.Result = bsubstateRLP.Result
 }
 
 type SubstateRLP struct {

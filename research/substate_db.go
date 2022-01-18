@@ -155,6 +155,15 @@ func (db *SubstateDB) GetSubstate(block uint64, tx int) *Substate {
 
 	substateRLP := SubstateRLP{}
 	err = rlp.DecodeBytes(value, &substateRLP)
+
+	if err != nil {
+		berlinRLP := berlinSubstateRLP{}
+		err = rlp.DecodeBytes(value, &berlinRLP)
+		if err == nil {
+			substateRLP.setBerlinRLP(&berlinRLP)
+		}
+	}
+
 	if err != nil {
 		legacyRLP := legacySubstateRLP{}
 		err = rlp.DecodeBytes(value, &legacyRLP)
