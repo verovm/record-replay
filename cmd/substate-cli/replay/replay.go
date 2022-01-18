@@ -81,7 +81,8 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 	var (
 		statedb   = MakeOffTheChainStateDB(inputAlloc)
 		gaspool   = new(core.GasPool)
-		blockHash = common.Hash{0x13, 0x37}
+		blockHash = common.Hash{0x01}
+		txHash    = common.Hash{0x02}
 		txIndex   = tx
 	)
 
@@ -109,7 +110,7 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 	}
 	vmConfig.Tracer = tracer
 	vmConfig.Debug = (tracer != nil)
-	statedb.Prepare(common.Hash{}, blockHash, txIndex)
+	statedb.Prepare(txHash, txIndex)
 
 	txCtx := vm.TxContext{
 		GasPrice: msg.GasPrice(),
@@ -141,7 +142,7 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 	} else {
 		evmResult.Status = types.ReceiptStatusSuccessful
 	}
-	evmResult.Logs = statedb.GetLogs(common.Hash{})
+	evmResult.Logs = statedb.GetLogs(txHash, blockHash)
 	evmResult.Bloom = types.BytesToBloom(types.LogsBloom(evmResult.Logs))
 	if to := msg.To(); to == nil {
 		evmResult.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce())
