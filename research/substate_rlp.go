@@ -115,7 +115,7 @@ type SubstateEnvRLP struct {
 	Timestamp   uint64
 	BlockHashes [][2]common.Hash
 
-	BaseFee *big.Int `rlp:"nil"` // missing in substate DB from Geth <= v1.10.3
+	BaseFee *common.Hash `rlp:"nil"` // missing in substate DB from Geth <= v1.10.3
 }
 
 func NewSubstateEnvRLP(env *SubstateEnv) *SubstateEnvRLP {
@@ -138,7 +138,11 @@ func NewSubstateEnvRLP(env *SubstateEnv) *SubstateEnvRLP {
 		envRLP.BlockHashes = append(envRLP.BlockHashes, pair)
 	}
 
-	envRLP.BaseFee = env.BaseFee
+	envRLP.BaseFee = nil
+	if env.BaseFee != nil {
+		baseFeeHash := common.BigToHash(env.BaseFee)
+		envRLP.BaseFee = &baseFeeHash
+	}
 
 	return &envRLP
 }
@@ -157,7 +161,10 @@ func (env *SubstateEnv) SetRLP(envRLP *SubstateEnvRLP, db *SubstateDB) {
 		env.BlockHashes[num64] = bhash
 	}
 
-	env.BaseFee = envRLP.BaseFee
+	env.BaseFee = nil
+	if envRLP.BaseFee != nil {
+		env.BaseFee = envRLP.BaseFee.Big()
+	}
 }
 
 type legacySubstateMessageRLP struct {
