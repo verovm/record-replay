@@ -110,6 +110,8 @@ type SubstateEnvJSON struct {
 	Number      math.HexOrDecimal64                 `json:"number" gencodec:"required"`
 	Timestamp   math.HexOrDecimal64                 `json:"timestamp" gencodec:"required"`
 	BlockHashes map[math.HexOrDecimal64]common.Hash `json:"blockHashes,omitempty"`
+
+	BaseFee *math.HexOrDecimal256 `json:"baseFee,omitempty"`
 }
 
 func NewSubstateEnvJSON(env *SubstateEnv) *SubstateEnvJSON {
@@ -127,6 +129,8 @@ func NewSubstateEnvJSON(env *SubstateEnv) *SubstateEnvJSON {
 		}
 	}
 
+	envJSON.BaseFee = (*math.HexOrDecimal256)(env.BaseFee)
+
 	return &envJSON
 }
 
@@ -141,6 +145,11 @@ func (env *SubstateEnv) SetJSON(envJSON *SubstateEnvJSON) {
 		for num64, bhash := range envJSON.BlockHashes {
 			env.BlockHashes[uint64(num64)] = bhash
 		}
+	}
+
+	env.BaseFee = (*big.Int)(envJSON.BaseFee)
+	if env.BaseFee.Cmp(big.NewInt(0)) == 0 {
+		env.BaseFee = nil
 	}
 }
 
@@ -175,6 +184,9 @@ type SubstateMessageJSON struct {
 	Data  hexutil.Bytes         `json:"input" gencodec:"required"`
 
 	AccessList types.AccessList `json:"accessList,omitempty"`
+
+	GasFeeCap *math.HexOrDecimal256 `json:"gasFeeCap,omitempty"`
+	GasTipCap *math.HexOrDecimal256 `json:"gasTipCap,omitempty"`
 }
 
 func NewSubstateMessageJSON(msg *SubstateMessage) *SubstateMessageJSON {
@@ -192,6 +204,9 @@ func NewSubstateMessageJSON(msg *SubstateMessage) *SubstateMessageJSON {
 
 	msgJSON.AccessList = msg.AccessList
 
+	msgJSON.GasFeeCap = (*math.HexOrDecimal256)(msg.GasFeeCap)
+	msgJSON.GasTipCap = (*math.HexOrDecimal256)(msg.GasTipCap)
+
 	return &msgJSON
 }
 
@@ -207,6 +222,15 @@ func (msg *SubstateMessage) SetJSON(msgJSON *SubstateMessageJSON) {
 	msg.Data = []byte(msgJSON.Data)
 
 	msg.AccessList = msgJSON.AccessList
+
+	msg.GasFeeCap = (*big.Int)(msgJSON.GasFeeCap)
+	if msg.GasFeeCap.Cmp(big.NewInt(0)) == 0 {
+		msg.GasFeeCap = msg.GasPrice
+	}
+	msg.GasTipCap = (*big.Int)(msgJSON.GasTipCap)
+	if msg.GasTipCap.Cmp(big.NewInt(0)) == 0 {
+		msg.GasTipCap = msg.GasPrice
+	}
 }
 
 func (msg SubstateMessage) MarshalJSON() ([]byte, error) {

@@ -225,7 +225,7 @@ func (msgRLP *SubstateMessageRLP) setBerlinRLP(bmsgRLP *berlinSubstateMessageRLP
 
 	msgRLP.AccessList = nil
 
-	// Same behavior as LegacyTx.gasFeeCap() and LegacyTx.gasTipCap()
+	// Same behavior as AccessListTx.gasFeeCap() and AccessListTx.gasTipCap()
 	msgRLP.GasFeeCap = bmsgRLP.GasPrice
 	msgRLP.GasTipCap = bmsgRLP.GasPrice
 }
