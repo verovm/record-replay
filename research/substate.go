@@ -146,7 +146,7 @@ func (x *SubstateEnv) Equal(y *SubstateEnv) bool {
 
 type SubstateMessage struct {
 	Nonce      uint64
-	CheckNonce bool
+	CheckNonce bool // inversion of IsFake
 	GasPrice   *big.Int
 	Gas        uint64
 
@@ -170,7 +170,7 @@ func NewSubstateMessage(msg *types.Message) *SubstateMessage {
 	var smsg = &SubstateMessage{}
 
 	smsg.Nonce = msg.Nonce()
-	smsg.CheckNonce = msg.CheckNonce()
+	smsg.CheckNonce = !msg.IsFake()
 	smsg.GasPrice = msg.GasPrice()
 	smsg.Gas = msg.Gas()
 
@@ -241,7 +241,7 @@ func (msg *SubstateMessage) AsMessage() types.Message {
 	return types.NewMessage(
 		msg.From, msg.To, msg.Nonce, msg.Value,
 		msg.Gas, msg.GasPrice, msg.GasFeeCap, msg.GasTipCap,
-		msg.Data, msg.AccessList, msg.CheckNonce)
+		msg.Data, msg.AccessList, !msg.CheckNonce)
 }
 
 // modification of types.Receipt
