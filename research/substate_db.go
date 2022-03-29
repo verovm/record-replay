@@ -153,10 +153,12 @@ func (db *SubstateDB) GetSubstate(block uint64, tx int) *Substate {
 		panic(fmt.Errorf("record-replay: error getting substate %v_%v from substate DB: %v,", block, tx, err))
 	}
 
+	// try decoding as substates from latest hard forks
 	substateRLP := SubstateRLP{}
 	err = rlp.DecodeBytes(value, &substateRLP)
 
 	if err != nil {
+		// try decoding as legacy substates between Berlin and London hard forks
 		berlinRLP := berlinSubstateRLP{}
 		err = rlp.DecodeBytes(value, &berlinRLP)
 		if err == nil {
@@ -165,6 +167,7 @@ func (db *SubstateDB) GetSubstate(block uint64, tx int) *Substate {
 	}
 
 	if err != nil {
+		// try decoding as legacy substates before Berlin hard fork
 		legacyRLP := legacySubstateRLP{}
 		err = rlp.DecodeBytes(value, &legacyRLP)
 		if err != nil {
@@ -200,10 +203,27 @@ func (db *SubstateDB) GetBlockSubstates(block uint64) map[int]*Substate {
 			panic(fmt.Errorf("record-replay: GetBlockSubstates(%v) iterated substates from block %v", block, b))
 		}
 
+		// try decoding as substates from latest hard forks
 		substateRLP := SubstateRLP{}
 		err = rlp.DecodeBytes(value, &substateRLP)
+
 		if err != nil {
-			panic(fmt.Errorf("error decoding substate %v_%v: %v", block, tx, err))
+			// try decoding as legacy substates between Berlin and London hard forks
+			berlinRLP := berlinSubstateRLP{}
+			err = rlp.DecodeBytes(value, &berlinRLP)
+			if err == nil {
+				substateRLP.setBerlinRLP(&berlinRLP)
+			}
+		}
+
+		if err != nil {
+			// try decoding as legacy substates before Berlin hard fork
+			legacyRLP := legacySubstateRLP{}
+			err = rlp.DecodeBytes(value, &legacyRLP)
+			if err != nil {
+				panic(fmt.Errorf("error decoding substateRLP %v_%v: %v", block, tx, err))
+			}
+			substateRLP.setLegacyRLP(&legacyRLP)
 		}
 
 		substate := Substate{}
