@@ -63,13 +63,11 @@ OPTIONS:
 
 For example, if you want 8 workers to replay transactions except CREATE transactions:
 ```bash
-# 8 workers will replay transactions that invoke bytecode execution
 ./substate-cli replay 46147 50000 --workers 8 --skip-create-txs
 ```
 
 If you want to replay only CREATE transactions:
 ```bash
-# 8 workers will replay transactions that invoke bytecode execution
 ./substate-cli replay 46147 50000 --skip-transfer-txs --skip-call-txs
 ```
 
