@@ -115,6 +115,7 @@ func (pool *SubstateTaskPool) Execute() error {
 		nb, nt := atomic.LoadInt64(&totalNumBlock), atomic.LoadInt64(&totalNumTx)
 		blkPerSec := float64(nb) / sec
 		txPerSec := float64(nt) / sec
+		fmt.Printf("%s: block range = %v %v\n", pool.Name, pool.First, pool.Last)
 		fmt.Printf("%s: total #block = %v\n", pool.Name, nb)
 		fmt.Printf("%s: total #tx    = %v\n", pool.Name, nt)
 		fmt.Printf("%s: %.2f blk/s, %.2f tx/s\n", pool.Name, blkPerSec, txPerSec)
@@ -127,7 +128,8 @@ func (pool *SubstateTaskPool) Execute() error {
 		runtime.GOMAXPROCS(numProcs)
 	}
 
-	fmt.Printf("%s: #CPU = %v, #worker = %v, #thread = %v\n", pool.Name, runtime.NumCPU(), pool.Workers, runtime.GOMAXPROCS(0))
+	fmt.Printf("%s: block range = %v %v\n", pool.Name, pool.First, pool.Last)
+	fmt.Printf("%s: #CPU = %v, #worker = %v\n", pool.Name, runtime.NumCPU(), pool.Workers)
 
 	workChan := make(chan uint64, pool.Workers*10)
 	doneChan := make(chan interface{}, pool.Workers*10)
