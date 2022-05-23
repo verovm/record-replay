@@ -74,7 +74,7 @@ var HardForkFlag = cli.Int64Flag{
 	Name: "hard-fork",
 	Usage: func() string {
 		s := ""
-		s += "Hard-fork block number, it will not change block number in substate env"
+		s += "Hard-fork block number, won't change block number in Env for NUMBER instruction"
 
 		hardForkNums := make([]int64, 0, len(HardForkName))
 		for num64 := range HardForkName {
