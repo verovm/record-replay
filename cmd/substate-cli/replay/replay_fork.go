@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -337,14 +338,13 @@ func replayForkAction(ctx *cli.Context) error {
 	research.OpenSubstateDBReadOnly()
 	defer research.CloseSubstateDB()
 
+	statWg := &sync.WaitGroup{}
+	statWg.Add(1)
 	go func() {
 		for errstr := range ReplayForkErrChan {
 			ReplayForkStats[errstr]++
 		}
-
-		for errstr, n := range ReplayForkStats {
-			fmt.Printf("substate-cli replay-fork: %12v %s\n", n, errstr)
-		}
+		statWg.Done()
 	}()
 
 	taskPool := research.NewSubstateTaskPool("substate-cli replay-fork", replayForkTask, uint64(first), uint64(last), ctx)
@@ -352,5 +352,11 @@ func replayForkAction(ctx *cli.Context) error {
 	if err == nil {
 		close(ReplayForkErrChan)
 	}
+
+	statWg.Wait()
+	for errstr, n := range ReplayForkStats {
+		fmt.Printf("substate-cli replay-fork: %12v %s\n", n, errstr)
+	}
+
 	return err
 }
