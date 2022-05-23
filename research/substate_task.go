@@ -191,30 +191,42 @@ func (pool *SubstateTaskPool) Execute() error {
 		}
 	}()
 
-	// Count finished blocks and report execution speed
+	// Count finished blocks in order and report execution speed
 	var lastSec float64
 	var lastNumBlock, lastNumTx int64
-	for block := pool.First; block <= pool.Last; block++ {
+	waitMap := make(map[uint64]struct{})
+	for block := pool.First; block <= pool.Last; {
+
+		// Count finshed blocks from waitMap in order
+		if _, ok := waitMap[block]; ok {
+			delete(waitMap, block)
+
+			block++
+			continue
+		}
+
+		duration := time.Since(start) + 1*time.Nanosecond
+		sec := duration.Seconds()
+		if block == pool.Last ||
+			(block%10000 == 0 && sec > lastSec+5) ||
+			(block%1000 == 0 && sec > lastSec+10) ||
+			(block%100 == 0 && sec > lastSec+20) ||
+			(block%10 == 0 && sec > lastSec+40) ||
+			(sec > lastSec+60) {
+			nb, nt := atomic.LoadInt64(&totalNumBlock), atomic.LoadInt64(&totalNumTx)
+			blkPerSec := float64(nb-lastNumBlock) / (sec - lastSec)
+			txPerSec := float64(nt-lastNumTx) / (sec - lastSec)
+			fmt.Printf("%s: elapsed time: %v, number = %v\n", pool.Name, duration.Round(1*time.Millisecond), block)
+			fmt.Printf("%s: %.2f blk/s, %.2f tx/s\n", pool.Name, blkPerSec, txPerSec)
+
+			lastSec, lastNumBlock, lastNumTx = sec, nb, nt
+		}
+
 		data := <-doneChan
 		switch t := data.(type) {
 
 		case uint64:
-			duration := time.Since(start) + 1*time.Nanosecond
-			sec := duration.Seconds()
-			if block == pool.Last ||
-				(block%10000 == 0 && sec > lastSec+5) ||
-				(block%1000 == 0 && sec > lastSec+10) ||
-				(block%100 == 0 && sec > lastSec+20) ||
-				(block%10 == 0 && sec > lastSec+40) ||
-				(sec > lastSec+60) {
-				nb, nt := atomic.LoadInt64(&totalNumBlock), atomic.LoadInt64(&totalNumTx)
-				blkPerSec := float64(nb-lastNumBlock) / (sec - lastSec)
-				txPerSec := float64(nt-lastNumTx) / (sec - lastSec)
-				fmt.Printf("%s: elapsed time: %v, number = %v\n", pool.Name, duration.Round(1*time.Millisecond), block)
-				fmt.Printf("%s: %.2f blk/s, %.2f tx/s\n", pool.Name, blkPerSec, txPerSec)
-
-				lastSec, lastNumBlock, lastNumTx = sec, nb, nt
-			}
+			waitMap[data.(uint64)] = struct{}{}
 
 		case error:
 			err := data.(error)
