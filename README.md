@@ -4,7 +4,7 @@ Ethereum substate recorder/replayer based on the paper:
 
 **Yeonsoo Kim, Seongho Jeong, Kamil Jezek, Bernd Burgstaller, and Bernhard Scholz**: _An Off-The-Chain Execution Environment for Scalable Testing and Profiling of Smart Contracts_,  USENIX ATC'21
 
-See [research/README.md](research/README.md) to find how to use substate recorder/replayer.
+See [research/README.md](research/README.md) to find how to use substate recorder/replayer. Git tags of `record-replay` releases starts with prefix `rr` (e.g. `rr0.3.2`) to distinguish Geth releases with prefix `v` (e.g. `v1.10.15`).
 
 Visit [verovm/usenix-atc21](https://github.com/verovm/usenix-atc21) repository for software artifact from the ATC'21 paper.
 
