@@ -1,4 +1,4 @@
-# Substate - Record/Replay Transactions Efficiently
+# Ethereum Substate Recorder/Replayer
 Ethereum substate recorder/replayer based on the paper:
 
 **Yeonsoo Kim, Seongho Jeong, Kamil Jezek, Bernd Burgstaller, and Bernhard Scholz**: _An Off-The-Chain Execution Environment for Scalable Testing and Profiling of Smart Contracts_,  USENIX ATC'21
