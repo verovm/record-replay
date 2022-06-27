@@ -6,10 +6,7 @@ Ethereum substate recorder/replayer based on the paper:
 To build all programs, simply run `make all`.
 You can find all executables including `geth` and our `substate-cli` in `build/bin/` directory.
 
-## Record transaction substates
-Use `geth import` to save transaction substates in the argument of `--substatedir`
-(default: `substate.ethereum`).
-
+## Substate Data Structures
 There are 5 data structures stored in a substate DB:
 1. `SubstateAccount`: account information (nonce, balance, code, storage)
 2. `SubstateAlloc`: mapping of account address and `SubstateAccount`
@@ -28,6 +25,25 @@ The first 2 bytes of a key in a substate DB represent different data types as fo
 1. `1s`: Substate, a key is `"1s"+N+T` with transaction index `T` at block `N`.
 `T` and `N` are encoded in a big-endian 64-bit binary.
 2. `1c`: EVM bytecode, a key is `"1c"+codeHash` where `codeHash` is Keccak256 hash of the bytecode.
+
+## Record transaction substates
+Here is a simple way how to record substates.
+1. Download the unmodified Geth client that this repository is based on.
+For example, you can find in release notes that record-replay `rr0.3.2` is based on Geth `v1.10.15`.
+2. Sync **the unmodified Geth** up to the block which you want to record and replay.
+Geth full/snap sync will download blocks from the genesis block.
+3. Export blocks using **the unmodified Geth**.
+For example, `geth export ethereum.blockchain` to export from the genesis block to the latest synced block.
+4. Import the exported blocks using **the `geth import` from record-replay** from scratch.
+For example, `geth --datadir new.ethereum import ethereum.blockchain` to import and record the exported blocks from the unmodified Geth.
+
+If you want to record a specific range of blocks `X-Y`, you need the (unmodified) Geth database whose head block is `X-1`, and blocks `X-Y` exported to a file.
+If you don't have the Geth database at block `X-1`, then you need to export blocks up to `X-1` with the unmodified Geth, and import it from scratch again.
+
+The output directory specified by `--substatedir` (default: `substate.ethereum`) is the substate DB.
+The directory is a single LevelDB instance, so you must read or write the substate DB with `github.com/syndtr/goleveldb` module.
+The substate DB may be corrupted if you directly write or modify any files in the directory.
+Do not use LevelDB library for other languages (C++, Python, etc.) because they are incompatible with the goleveldb module.
 
 ## Replay transactions
 `substate-cli replay` executes transaction substates in a given block range.
@@ -124,3 +140,14 @@ OPTIONS:
 ```
 ./substate-cli db compact substate.ethereum
 ```
+
+## Debugging replayer
+You may instrument EVM in our replayer instead of the P2P client to speed up dynamic analysis on EVM bytecode.
+In this case, modify and run `substate-cli replay` which checks the EVM output with the recorded output.
+If those two outputs are different in `substate-cli replay`, it will print substates formatted in JSON and terminate.
+In this case, use `--workers=1` option for sequential transaction execution and identify the block N that causes the problem.
+Then, add code that prints values for debugging or use debugging tools.
+
+You may modify EVM specification and want to see the effects of the updates.
+It also means that you don't expect that all transactions are faithfully replayed.
+In this case, modify and run `substate-cli replay-fork` which checks differences in the outputs and reports them.
