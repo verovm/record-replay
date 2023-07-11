@@ -154,27 +154,67 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 	r := outputResult.Equal(evmResult)
 	a := outputAlloc.Equal(evmAlloc)
 	if !(r && a) {
+		fmt.Println()
+		fmt.Printf("block %v, tx %v, inconsistent output report BEGIN\n", block, tx)
+		var jbytes []byte
 		if !r {
-			fmt.Printf("inconsistent output: result\n")
+			fmt.Printf("inconsistent result\n")
+			jbytes, _ = json.MarshalIndent(outputResult, "", " ")
+			fmt.Printf("==== outputResult:\n%s\n", jbytes)
+			jbytes, _ = json.MarshalIndent(evmResult, "", " ")
+			fmt.Printf("==== evmResult:\n%s\n", jbytes)
+			fmt.Println()
 		}
 		if !a {
-			fmt.Printf("inconsistent output: alloc\n")
+			fmt.Printf("inconsistent output\n")
+			addrs := make(map[common.Address]struct{})
+			for k, _ := range outputAlloc {
+				addrs[k] = struct{}{}
+			}
+			for k, _ := range evmAlloc {
+				addrs[k] = struct{}{}
+			}
+			for k, _ := range addrs {
+				iv := inputAlloc[k]
+				ov := outputAlloc[k]
+				ev := evmAlloc[k]
+				if ov.Equal(ev) {
+					continue
+				}
+				kHex := k.Hex()
+				ivCopy := iv.Copy()
+				ovCopy := ov.Copy()
+				evCopy := ev.Copy()
+				ivCopy.Code = nil
+				ovCopy.Code = nil
+				evCopy.Code = nil
+				fmt.Printf("account address: %s\n", kHex)
+				fmt.Printf("==== inputAlloc ====\n")
+				jbytes, _ = json.MarshalIndent(ivCopy, "", " ")
+				fmt.Printf("%s\nCodeHash: %s\n", jbytes, iv.CodeHash())
+				fmt.Printf("==== outputAlloc ====\n")
+				jbytes, _ = json.MarshalIndent(ovCopy, "", " ")
+				fmt.Printf("%s\nCodeHash: %s\n", jbytes, ov.CodeHash())
+				fmt.Printf("==== evmAlloc ====\n")
+				jbytes, _ = json.MarshalIndent(evCopy, "", " ")
+				fmt.Printf("%s\nCodeHash: %s\n", jbytes, ev.CodeHash())
+				fmt.Println()
+			}
 		}
-		var jbytes []byte
-		jbytes, _ = json.MarshalIndent(inputAlloc, "", " ")
-		fmt.Printf("inputAlloc:\n%s\n", jbytes)
-		jbytes, _ = json.MarshalIndent(inputEnv, "", " ")
-		fmt.Printf("inputEnv:\n%s\n", jbytes)
-		jbytes, _ = json.MarshalIndent(inputMessage, "", " ")
-		fmt.Printf("inputMessage:\n%s\n", jbytes)
-		jbytes, _ = json.MarshalIndent(outputAlloc, "", " ")
-		fmt.Printf("outputAlloc:\n%s\n", jbytes)
-		jbytes, _ = json.MarshalIndent(evmAlloc, "", " ")
-		fmt.Printf("evmAlloc:\n%s\n", jbytes)
-		jbytes, _ = json.MarshalIndent(outputResult, "", " ")
-		fmt.Printf("outputResult:\n%s\n", jbytes)
-		jbytes, _ = json.MarshalIndent(evmResult, "", " ")
-		fmt.Printf("evmResult:\n%s\n", jbytes)
+
+		// information to search the transaction traces
+		fmt.Printf("message from %s\n", inputMessage.From.Hex())
+		fmt.Printf("message to %s\n", inputMessage.To.Hex())
+		fmt.Printf("result status: %v\n", outputResult.Status)
+		if !r {
+			fmt.Printf("inconsistent result\n")
+		}
+		if !a {
+			fmt.Printf("inconsistent alloc\n")
+		}
+		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
+		fmt.Println()
+
 		return fmt.Errorf("inconsistent output")
 	}
 
