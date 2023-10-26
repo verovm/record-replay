@@ -198,15 +198,11 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		blockCtx.BaseFee = new(big.Int)
 	}
 
-	rules := chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time)
-	statedb.Prepare(rules, txCtx.Origin, blockCtx.Coinbase, msg.To, vm.ActivePrecompiles(rules), msg.AccessList)
+	statedb.SetTxContext(txHash, tx)
 
 	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
-	snapshot := statedb.Snapshot()
 	msgResult, err := core.ApplyMessage(evm, msg, gaspool)
-
 	if err != nil {
-		statedb.RevertToSnapshot(snapshot)
 		stat = &ReplayForkStat{
 			Count:  1,
 			ErrStr: strings.Split(err.Error(), ":")[0],

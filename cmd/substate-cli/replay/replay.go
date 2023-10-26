@@ -64,16 +64,12 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 		return nil, nil
 	}
 
-	var hashError error
+	// getHash returns zero for block hash that does not exist
 	getHash := func(num uint64) common.Hash {
 		if inputEnv.BlockHashes == nil {
-			hashError = fmt.Errorf("getHash(%d) invoked, no blockhashes provided", num)
 			return common.Hash{}
 		}
-		h, ok := inputEnv.BlockHashes[num]
-		if !ok {
-			hashError = fmt.Errorf("getHash(%d) invoked, blockhash for that block not provided", num)
-		}
+		h := inputEnv.BlockHashes[num]
 		return h
 	}
 
@@ -129,20 +125,12 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 		Origin:   msg.From,
 	}
 
-	rules := chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time)
-	statedb.Prepare(rules, txCtx.Origin, blockCtx.Coinbase, msg.To, vm.ActivePrecompiles(rules), msg.AccessList)
+	statedb.SetTxContext(txHash, tx)
 
 	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
-	snapshot := statedb.Snapshot()
 	msgResult, err := core.ApplyMessage(evm, msg, gaspool)
-
 	if err != nil {
-		statedb.RevertToSnapshot(snapshot)
 		return err
-	}
-
-	if hashError != nil {
-		return hashError
 	}
 
 	if chainConfig.IsByzantium(blockCtx.BlockNumber) {
