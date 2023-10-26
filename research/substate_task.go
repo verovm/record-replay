@@ -7,13 +7,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/shirou/gopsutil/cpu"
 	cli "github.com/urfave/cli/v2"
 )
 
 var (
 	WorkersFlag = &cli.IntFlag{
 		Name:  "workers",
-		Usage: "Number of worker threads that execute in parallel",
+		Usage: "Number of worker threads (goroutines), 0 for current CPU physical cores",
 		Value: 4,
 	}
 	SkipTransferTxsFlag = &cli.BoolFlag{
@@ -122,22 +123,30 @@ func (pool *SubstateTaskPool) Execute() error {
 		fmt.Printf("%s done in %v\n", pool.Name, duration.Round(1*time.Millisecond))
 	}()
 
-	// numProcs = numWorker + work producer (1) + main thread (1)
-	numProcs := pool.Workers + 2
+	numWorkers := pool.Workers
+	if numWorkers <= 0 {
+		numCores, err := cpu.Counts(false)
+		if err != nil {
+			panic(fmt.Errorf("%s: failed to count number of physical cores: %s", pool.Name, err))
+		}
+		numWorkers = numCores
+	}
+	// numProcs = numWorkers + work producer (1) + main thread (1)
+	numProcs := numWorkers + 2
 	if goMaxProcs := runtime.GOMAXPROCS(0); goMaxProcs < numProcs {
 		runtime.GOMAXPROCS(numProcs)
 	}
 
 	fmt.Printf("%s: block range = %v %v\n", pool.Name, pool.First, pool.Last)
-	fmt.Printf("%s: #CPU = %v, #worker = %v\n", pool.Name, runtime.NumCPU(), pool.Workers)
+	fmt.Printf("%s: --workers=%v, #worker = %v\n", pool.Name, pool.Workers, numWorkers)
 
-	workChan := make(chan uint64, pool.Workers*10)
-	doneChan := make(chan interface{}, pool.Workers*10)
-	stopChan := make(chan struct{}, pool.Workers)
+	workChan := make(chan uint64, numWorkers*10)
+	doneChan := make(chan interface{}, numWorkers*10)
+	stopChan := make(chan struct{}, numWorkers)
 	wg := sync.WaitGroup{}
 	defer func() {
 		// stop all workers
-		for i := 0; i < pool.Workers; i++ {
+		for i := 0; i < numWorkers; i++ {
 			stopChan <- struct{}{}
 		}
 		// stop work producer (1)
@@ -148,7 +157,7 @@ func (pool *SubstateTaskPool) Execute() error {
 		close(doneChan)
 	}()
 	// dynamically schedule one block per worker
-	for i := 0; i < pool.Workers; i++ {
+	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		// worker goroutine
 		go func() {
