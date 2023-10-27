@@ -69,6 +69,23 @@ func NewSubstateTaskPool(name string, taskFunc SubstateTaskFunc, first, last uin
 	}
 }
 
+// NumWorkers calculates number of workers especially when --workers=0
+func (pool *SubstateTaskPool) NumWorkers() int {
+	// return pool.Workers if it is positive integer
+	if pool.Workers > 0 {
+		return pool.Workers
+	}
+
+	// try to return number of physical cores
+	cores, err := cpu.Counts(false)
+	if err == nil {
+		return cores
+	}
+
+	// return number of logical cores
+	return runtime.NumCPU()
+}
+
 // ExecuteBlock function iterates on substates of a given block call TaskFunc
 func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error) {
 	for tx, substate := range pool.DB.GetBlockSubstates(block) {
@@ -123,14 +140,7 @@ func (pool *SubstateTaskPool) Execute() error {
 		fmt.Printf("%s done in %v\n", pool.Name, duration.Round(1*time.Millisecond))
 	}()
 
-	numWorkers := pool.Workers
-	if numWorkers <= 0 {
-		numCores, err := cpu.Counts(false)
-		if err != nil {
-			panic(fmt.Errorf("%s: failed to count number of physical cores: %s", pool.Name, err))
-		}
-		numWorkers = numCores
-	}
+	numWorkers := pool.NumWorkers()
 	// numProcs = numWorkers + work producer (1) + main thread (1)
 	numProcs := numWorkers + 2
 	if goMaxProcs := runtime.GOMAXPROCS(0); goMaxProcs < numProcs {
