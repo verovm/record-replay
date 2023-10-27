@@ -2,7 +2,6 @@ package db
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/research"
@@ -12,41 +11,33 @@ import (
 var CloneCommand = &cli.Command{
 	Action:    clone,
 	Name:      "clone",
-	Usage:     "Create a clone DB of a given range of blocks",
+	Usage:     "Create a clone DB of a given block segment",
 	ArgsUsage: "<srcPath> <dstPath> <blockNumFirst> <blockNumLast>",
 	Flags: []cli.Flag{
 		research.WorkersFlag,
+		research.BlockSegmentFlag,
+		&cli.PathFlag{
+			Name:     "src-path",
+			Usage:    "Source DB path",
+			Required: true,
+		},
+		&cli.PathFlag{
+			Name:     "dst-path",
+			Usage:    "Destination DB path",
+			Required: true,
+		},
 	},
 	Description: `
-The substate-cli db clone command requires four arguments:
-    <srcPath> <dstPath> <blockNumFirst> <blockNumLast>
-<srcPath> is the original substate database to read the information.
-<dstPath> is the target substate database to write the information
-<blockNumFirst> and <blockNumLast> are the first and
-last block of the inclusive range of blocks to clone.`,
+substate-cli db clone creates a clone DB of a given block segment.
+This loads a complete substate from src-path, then save it to dst path.
+The dst-path will always store substates in the latest encoding.
+`,
 }
 
 func clone(ctx *cli.Context) error {
 	var err error
 
-	if ctx.Args().Len() != 4 {
-		return fmt.Errorf("substate-cli db clone command requires exactly 4 arguments")
-	}
-
-	srcPath := ctx.Args().Get(0)
-	dstPath := ctx.Args().Get(1)
-	first, ferr := strconv.ParseInt(ctx.Args().Get(2), 10, 64)
-	last, lerr := strconv.ParseInt(ctx.Args().Get(3), 10, 64)
-	if ferr != nil || lerr != nil {
-		return fmt.Errorf("substate-cli db clone: error in parsing parameters: block number not an integer")
-	}
-	if first < 0 || last < 0 {
-		return fmt.Errorf("substate-cli db clone: error: block number must be greater than 0")
-	}
-	if first > last {
-		return fmt.Errorf("substate-cli db clone: error: first block has larger number than last block")
-	}
-
+	srcPath := ctx.Path("src-path")
 	srcBackend, err := rawdb.NewLevelDBDatabase(srcPath, 1024, 100, "srcDB", true)
 	if err != nil {
 		return fmt.Errorf("substate-cli db clone: error opening %s: %v", srcPath, err)
@@ -55,6 +46,7 @@ func clone(ctx *cli.Context) error {
 	defer srcDB.Close()
 
 	// Create dst DB
+	dstPath := ctx.Path("dst-path")
 	dstBackend, err := rawdb.NewLevelDBDatabase(dstPath, 1024, 100, "srcDB", false)
 	if err != nil {
 		return fmt.Errorf("substate-cli db clone: error creating %s: %v", dstPath, err)
@@ -67,8 +59,20 @@ func clone(ctx *cli.Context) error {
 		return nil
 	}
 
-	taskPool := research.NewSubstateTaskPool("substate-cli db clone", cloneTask, uint64(first), uint64(last), ctx)
-	taskPool.DB = srcDB
-	err = taskPool.Execute()
+	taskPool := &research.SubstateTaskPool{
+		Name:     "substate-cli db clone",
+		TaskFunc: cloneTask,
+		Config:   research.NewSubstateTaskConfigCli(ctx),
+
+		DB: srcDB,
+	}
+
+	segment, err := research.ParseBlockSegment(ctx.String(research.BlockSegmentFlag.Name))
+	if err != nil {
+		return fmt.Errorf("substate-cli db clone: error parsing block segment: %s", err)
+	}
+
+	err = taskPool.ExecuteSegment(segment)
+
 	return err
 }

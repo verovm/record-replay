@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -18,23 +17,20 @@ import (
 
 // record-replay: substate-cli replay command
 var ReplayCommand = &cli.Command{
-	Action:    replayAction,
-	Name:      "replay",
-	Usage:     "executes full state transitions and check output consistency",
-	ArgsUsage: "<blockNumFirst> <blockNumLast>",
+	Action: replayAction,
+	Name:   "replay",
+	Usage:  "replay transactions and check output consistency",
 	Flags: []cli.Flag{
 		research.WorkersFlag,
 		research.SkipTransferTxsFlag,
 		research.SkipCallTxsFlag,
 		research.SkipCreateTxsFlag,
 		research.SubstateDirFlag,
+		research.BlockSegmentFlag,
 	},
 	Description: `
-The substate-cli replay command requires two arguments:
-<blockNumFirst> <blockNumLast>
-
-<blockNumFirst> and <blockNumLast> are the first and
-last block of the inclusive range of blocks to replay transactions.`,
+substate-cli replay executes transactions in the given block segment
+and check output consistency for faithful replaying.`,
 }
 
 // replayTask replays a transaction substate
@@ -228,27 +224,18 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 func replayAction(ctx *cli.Context) error {
 	var err error
 
-	if ctx.Args().Len() != 2 {
-		return fmt.Errorf("substate-cli replay command requires exactly 2 arguments")
-	}
-
-	first, ferr := strconv.ParseInt(ctx.Args().Get(0), 10, 64)
-	last, lerr := strconv.ParseInt(ctx.Args().Get(1), 10, 64)
-	if ferr != nil || lerr != nil {
-		return fmt.Errorf("substate-cli replay: error in parsing parameters: block number not an integer")
-	}
-	if first < 0 || last < 0 {
-		return fmt.Errorf("substate-cli replay: error: block number must be greater than 0")
-	}
-	if first > last {
-		return fmt.Errorf("substate-cli replay: error: first block has larger number than last block")
-	}
-
 	research.SetSubstateFlags(ctx)
 	research.OpenSubstateDBReadOnly()
 	defer research.CloseSubstateDB()
 
-	taskPool := research.NewSubstateTaskPool("substate-cli replay", replayTask, uint64(first), uint64(last), ctx)
-	err = taskPool.Execute()
+	taskPool := research.NewSubstateTaskPoolCli("substate-cli replay", replayTask, ctx)
+
+	segment, err := research.ParseBlockSegment(ctx.String(research.BlockSegmentFlag.Name))
+	if err != nil {
+		return fmt.Errorf("substate-cli replay: error parsing block segment: %s", err)
+	}
+
+	err = taskPool.ExecuteSegment(segment)
+
 	return err
 }

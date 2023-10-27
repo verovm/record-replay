@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -23,10 +22,9 @@ import (
 
 // record-replay: replay-fork command
 var ReplayForkCommand = &cli.Command{
-	Action:    replayForkAction,
-	Name:      "replay-fork",
-	Usage:     "executes and check output consistency of all transactions in the range with the given hard-fork",
-	ArgsUsage: "<blockNumFirst> <blockNumLast>",
+	Action: replayForkAction,
+	Name:   "replay-fork",
+	Usage:  "replay transactions with the given hard fork and compare results",
 	Flags: []cli.Flag{
 		research.WorkersFlag,
 		research.SkipTransferTxsFlag,
@@ -34,15 +32,11 @@ var ReplayForkCommand = &cli.Command{
 		research.SkipCreateTxsFlag,
 		HardForkFlag,
 		research.SubstateDirFlag,
+		research.BlockSegmentFlag,
 	},
 	Description: `
-The replay-fork command requires two arguments:
-<blockNumFirst> <blockNumLast>
-
-<blockNumFirst> and <blockNumLast> are the first and
-last block of the inclusive range of blocks to replay transactions.
-
---hard-fork parameter is recommended for this command.`,
+substate-cli replay executes transactions in the given block segment
+with the given hard fork config and report output comparison results.`,
 }
 
 var HardForkName = map[int64]string{
@@ -344,22 +338,6 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 func replayForkAction(ctx *cli.Context) error {
 	var err error
 
-	if ctx.Args().Len() != 2 {
-		return fmt.Errorf("substate-cli replay-fork command requires exactly 2 arguments")
-	}
-
-	first, ferr := strconv.ParseInt(strings.ReplaceAll(ctx.Args().Get(0), "_", ""), 10, 64)
-	last, lerr := strconv.ParseInt(strings.ReplaceAll(ctx.Args().Get(1), "_", ""), 10, 64)
-	if ferr != nil || lerr != nil {
-		return fmt.Errorf("substate-cli replay-fork: error in parsing parameters: block number not an integer")
-	}
-	if first < 0 || last < 0 {
-		return fmt.Errorf("substate-cli replay-fork: error: block number must be greater than 0")
-	}
-	if first > last {
-		return fmt.Errorf("substate-cli replay-fork: error: first block has larger number than last block")
-	}
-
 	hardFork := ctx.Int64(HardForkFlag.Name)
 	if hardForkName, exist := HardForkName[hardFork]; !exist {
 		return fmt.Errorf("substate-cli replay-fork: invalid hard-fork block number %v", hardFork)
@@ -410,8 +388,14 @@ func replayForkAction(ctx *cli.Context) error {
 		statWg.Done()
 	}()
 
-	taskPool := research.NewSubstateTaskPool("substate-cli replay-fork", replayForkTask, uint64(first), uint64(last), ctx)
-	err = taskPool.Execute()
+	taskPool := research.NewSubstateTaskPoolCli("substate-cli replay-fork", replayForkTask, ctx)
+
+	segment, err := research.ParseBlockSegment(ctx.String(research.BlockSegmentFlag.Name))
+	if err != nil {
+		return fmt.Errorf("substate-cli replay-fork: error parsing block segment: %s", err)
+	}
+
+	err = taskPool.ExecuteSegment(segment)
 	if err == nil {
 		close(ReplayForkStatChan)
 	}

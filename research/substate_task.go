@@ -2,7 +2,10 @@ package research
 
 import (
 	"fmt"
+	"regexp"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,41 +32,126 @@ var (
 		Name:  "skip-create-txs",
 		Usage: "Skip executing CREATE transactions",
 	}
+	BlockSegmentFlag = &cli.StringFlag{
+		Name:     "block-segment",
+		Usage:    "Single block segment (e.g. 1001, 1_001, 1_001-2_000, 1-2k, 1-2M)",
+		Required: true,
+	}
+	BlockSegmentListFlag = &cli.StringFlag{
+		Name:     "block-segment-list",
+		Usage:    "One or more block segments, e.g. '0-1M,1000-1100k,1100001,1_100_002-1_101_000'",
+		Required: true,
+	}
 )
 
+type BlockSegment struct {
+	First, Last uint64
+}
+
+func NewBlockSegment(first, last uint64) *BlockSegment {
+	return &BlockSegment{First: first, Last: last}
+}
+
+func ParseBlockSegment(s string) (*BlockSegment, error) {
+	var err error
+	// <first>: first block number
+	// <last>: optional, last block number
+	// <siunit>: optinal, k for 1000, M for 1000000
+	re := regexp.MustCompile(`^(?P<first>[0-9][0-9_]*)((-|~)(?P<last>[0-9][0-9_]*)(?P<siunit>[kM]?))?$`)
+	seg := &BlockSegment{}
+	if !re.MatchString(s) {
+		return nil, fmt.Errorf("invalid block segment string: %q", s)
+	}
+	matches := re.FindStringSubmatch(s)
+	first := strings.ReplaceAll(matches[re.SubexpIndex("first")], "_", "")
+	seg.First, err = strconv.ParseUint(first, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid block segment first: %s", err)
+	}
+	last := strings.ReplaceAll(matches[re.SubexpIndex("last")], "_", "")
+	if len(last) == 0 {
+		seg.Last = seg.First
+	} else {
+		seg.Last, err = strconv.ParseUint(last, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid block segment last: %s", err)
+		}
+	}
+	siunit := matches[re.SubexpIndex("siunit")]
+	switch siunit {
+	case "k":
+		seg.First = seg.First*1_000 + 1
+		seg.Last = seg.Last * 1_000
+	case "M":
+		seg.First = seg.First*1_000_000 + 1
+		seg.Last = seg.Last * 1_000_000
+	}
+	if seg.First > seg.Last {
+		return nil, fmt.Errorf("block segment first is larger than last: %v-%v", seg.First, seg.Last)
+	}
+	return seg, nil
+}
+
+type BlockSegmentList = []*BlockSegment
+
+func ParseBlockSegmentList(s string) (BlockSegmentList, error) {
+	var err error
+
+	lxs := strings.Split(s, ",")
+	br := make(BlockSegmentList, len(lxs))
+	for i, lx := range lxs {
+		br[i], err = ParseBlockSegment(lx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return br, nil
+}
+
 type SubstateTaskFunc func(block uint64, tx int, substate *Substate, taskPool *SubstateTaskPool) error
+
+type SubstateTaskConfig struct {
+	Workers int
+
+	SkipTransferTxs bool
+	SkipCallTxs     bool
+	SkipCreateTxs   bool
+}
+
+func NewSubstateTaskConfigCli(ctx *cli.Context) *SubstateTaskConfig {
+	return &SubstateTaskConfig{
+		Workers: ctx.Int(WorkersFlag.Name),
+
+		SkipTransferTxs: ctx.Bool(SkipTransferTxsFlag.Name),
+		SkipCallTxs:     ctx.Bool(SkipCallTxsFlag.Name),
+		SkipCreateTxs:   ctx.Bool(SkipCreateTxsFlag.Name),
+	}
+}
 
 type SubstateTaskPool struct {
 	Name     string
 	TaskFunc SubstateTaskFunc
-
-	First uint64
-	Last  uint64
-
-	Workers         int
-	SkipTransferTxs bool
-	SkipCallTxs     bool
-	SkipCreateTxs   bool
-
-	Ctx *cli.Context // CLI context required to read additional flags
+	Config   *SubstateTaskConfig
 
 	DB *SubstateDB
 }
 
-func NewSubstateTaskPool(name string, taskFunc SubstateTaskFunc, first, last uint64, ctx *cli.Context) *SubstateTaskPool {
+func NewSubstateTaskPool(name string, taskFunc SubstateTaskFunc, config *SubstateTaskConfig) *SubstateTaskPool {
 	return &SubstateTaskPool{
 		Name:     name,
 		TaskFunc: taskFunc,
+		Config:   config,
 
-		First: first,
-		Last:  last,
+		DB: staticSubstateDB,
+	}
+}
 
-		Workers:         ctx.Int(WorkersFlag.Name),
-		SkipTransferTxs: ctx.Bool(SkipTransferTxsFlag.Name),
-		SkipCallTxs:     ctx.Bool(SkipCallTxsFlag.Name),
-		SkipCreateTxs:   ctx.Bool(SkipCreateTxsFlag.Name),
-
-		Ctx: ctx,
+func NewSubstateTaskPoolCli(name string, taskFunc SubstateTaskFunc, ctx *cli.Context) *SubstateTaskPool {
+	return &SubstateTaskPool{
+		Name:     name,
+		TaskFunc: taskFunc,
+		Config:   NewSubstateTaskConfigCli(ctx),
 
 		DB: staticSubstateDB,
 	}
@@ -72,8 +160,8 @@ func NewSubstateTaskPool(name string, taskFunc SubstateTaskFunc, first, last uin
 // NumWorkers calculates number of workers especially when --workers=0
 func (pool *SubstateTaskPool) NumWorkers() int {
 	// return pool.Workers if it is positive integer
-	if pool.Workers > 0 {
-		return pool.Workers
+	if pool.Config.Workers > 0 {
+		return pool.Config.Workers
 	}
 
 	// try to return number of physical cores
@@ -93,19 +181,19 @@ func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error
 		msg := substate.Message
 
 		to := msg.To
-		if pool.SkipTransferTxs && to != nil {
+		if pool.Config.SkipTransferTxs && to != nil {
 			// skip regular transactions (ETH transfer)
 			if account, exist := alloc[*to]; !exist || len(account.Code) == 0 {
 				continue
 			}
 		}
-		if pool.SkipCallTxs && to != nil {
+		if pool.Config.SkipCallTxs && to != nil {
 			// skip CALL trasnactions with contract bytecode
 			if account, exist := alloc[*to]; exist && len(account.Code) > 0 {
 				continue
 			}
 		}
-		if pool.SkipCreateTxs && to == nil {
+		if pool.Config.SkipCreateTxs && to == nil {
 			// skip CREATE transactions
 			continue
 		}
@@ -122,7 +210,7 @@ func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error
 }
 
 // Execute function spawns worker goroutines and schedule tasks.
-func (pool *SubstateTaskPool) Execute() error {
+func (pool *SubstateTaskPool) ExecuteSegment(segment *BlockSegment) error {
 	start := time.Now()
 
 	var totalNumBlock, totalNumTx int64
@@ -133,7 +221,7 @@ func (pool *SubstateTaskPool) Execute() error {
 		nb, nt := atomic.LoadInt64(&totalNumBlock), atomic.LoadInt64(&totalNumTx)
 		blkPerSec := float64(nb) / sec
 		txPerSec := float64(nt) / sec
-		fmt.Printf("%s: block range = %v %v\n", pool.Name, pool.First, pool.Last)
+		fmt.Printf("%s: block segment = %v %v\n", pool.Name, segment.First, segment.Last)
 		fmt.Printf("%s: total #block = %v\n", pool.Name, nb)
 		fmt.Printf("%s: total #tx    = %v\n", pool.Name, nt)
 		fmt.Printf("%s: %.2f blk/s, %.2f tx/s\n", pool.Name, blkPerSec, txPerSec)
@@ -147,11 +235,11 @@ func (pool *SubstateTaskPool) Execute() error {
 		runtime.GOMAXPROCS(numProcs)
 	}
 
-	fmt.Printf("%s: block range = %v %v\n", pool.Name, pool.First, pool.Last)
-	fmt.Printf("%s: --workers=%v, #worker = %v\n", pool.Name, pool.Workers, numWorkers)
+	fmt.Printf("%s: block segment = %v-%v\n", pool.Name, segment.First, segment.Last)
+	fmt.Printf("%s: workers = %v\n", pool.Name, numWorkers)
 
-	workChan := make(chan uint64, numWorkers*10)
-	doneChan := make(chan interface{}, numWorkers*10)
+	workChan := make(chan uint64, numWorkers*1000)
+	doneChan := make(chan interface{}, numWorkers*1000)
 	stopChan := make(chan struct{}, numWorkers)
 	wg := sync.WaitGroup{}
 	defer func() {
@@ -199,7 +287,7 @@ func (pool *SubstateTaskPool) Execute() error {
 	go func() {
 		defer wg.Done()
 
-		for block := pool.First; block <= pool.Last; block++ {
+		for block := segment.First; block <= segment.Last; block++ {
 			select {
 
 			case workChan <- block:
@@ -216,7 +304,7 @@ func (pool *SubstateTaskPool) Execute() error {
 	var lastSec float64
 	var lastNumBlock, lastNumTx int64
 	waitMap := make(map[uint64]struct{})
-	for block := pool.First; block <= pool.Last; {
+	for block := segment.First; block <= segment.Last; {
 
 		// Count finshed blocks from waitMap in order
 		if _, ok := waitMap[block]; ok {
@@ -228,7 +316,7 @@ func (pool *SubstateTaskPool) Execute() error {
 
 		duration := time.Since(start) + 1*time.Nanosecond
 		sec := duration.Seconds()
-		if block == pool.Last ||
+		if block == segment.Last ||
 			(block%10000 == 0 && sec > lastSec+5) ||
 			(block%1000 == 0 && sec > lastSec+10) ||
 			(block%100 == 0 && sec > lastSec+20) ||
