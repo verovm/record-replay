@@ -52,93 +52,140 @@ it returns an error immediately.
 
 For example, if you want to replay transactions from block 1,000,001 to block 2,000,000 in `substate.ethereum`:
 ```bash
-./substate-cli replay 1000001 2000000
+./substate-cli replay --block-segment 1000001-2000000
+```
+In `--block-segment`, you can use `_` as a digit separator in block segment like `1_000_001-2_000_000`.
+You can use SI unit suffix `k` and `M` to `--block-segment` for shorter notations like `1_000-2_000k` or `1-2M`.
+```bash
+./substate-cli replay --block-segment 1-2M
 ```
 
 Here are command line options for `substate-cli replay`:
 ```
-replay [command options] <blockNumFirst> <blockNumLast>
+NAME:
+   substate-cli replay - replay transactions and check output consistency
 
-The substate-cli replay command requires two arguments:
-<blockNumFirst> <blockNumLast>
+USAGE:
+   substate-cli replay [command options] [arguments...]
 
-<blockNumFirst> and <blockNumLast> are the first and
-last block of the inclusive range of blocks to replay transactions.
+DESCRIPTION:
+   
+   substate-cli replay executes transactions in the given block segment
+   and check output consistency for faithful replaying.
 
 OPTIONS:
-   --workers value      Number of worker threads that execute in parallel (default: 4)
-   --skip-transfer-txs  Skip executing transactions that only transfer ETH
-   --skip-call-txs      Skip executing CALL transactions to accounts with contract bytecode
-   --skip-create-txs    Skip executing CREATE transactions
-   --substatedir value  Data directory for substate recorder/replayer (default: "substate.ethereum")
+   
+          --workers value                (default: 4)
+                Number of worker threads (goroutines), 0 for current CPU physical cores
+   
+          --skip-transfer-txs            (default: false)
+                Skip executing transactions that only transfer ETH
+   
+          --skip-call-txs                (default: false)
+                Skip executing CALL transactions to accounts with contract bytecode
+   
+          --skip-create-txs              (default: false)
+                Skip executing CREATE transactions
+   
+          --substatedir value            (default: "substate.ethereum")
+                Data directory for substate recorder/replayer
+   
+          --block-segment value         
+                Single block segment (e.g. 1001, 1_001, 1_001-2_000, 1-2k, 1-2M)
+   
+          --help, -h                     (default: false)
+                show help
+
 ```
 
 For example, if you want 32 workers to replay transactions except CREATE transactions:
 ```bash
-./substate-cli replay 1000001 2000000 --workers 32 --skip-create-txs
+./substate-cli replay --block-segment 1-2M --workers 32 --skip-create-txs
 ```
 
 If you want to replay only CALL transactions and skip the other types of transactions:
 ```bash
-./substate-cli replay 1000001 2000000 --skip-transfer-txs --skip-create-txs
+./substate-cli replay --block-segment 1-2M --skip-transfer-txs --skip-create-txs
 ```
 
 If you want to use a substate DB other than `substate.ethereum` (e.g. `/path/to/substate_db`):
 ```bash
-./substate-cli replay 1000001 2000000 --substatedir /path/to/substate_db
+./substate-cli replay --block-segment 1-2M --substatedir /path/to/substate_db
 ```
 
 ### Hard-fork assessment
 To assess hard-forks with prior transactions, use `substate-cli replay-fork` command. Run `./substate-cli replay-fork --help` for more details:
 
 ```
-replay-fork [command options] <blockNumFirst> <blockNumLast>
+NAME:
+   substate-cli replay-fork - replay transactions with the given hard fork and compare results
 
-The replay-fork command requires two arguments:
-<blockNumFirst> <blockNumLast>
+USAGE:
+   substate-cli replay-fork [command options] [arguments...]
 
-<blockNumFirst> and <blockNumLast> are the first and
-last block of the inclusive range of blocks to replay transactions.
-
---hard-fork parameter is recommended for this command.
+DESCRIPTION:
+   
+   substate-cli replay executes transactions in the given block segment
+   with the given hard fork config and report output comparison results.
 
 OPTIONS:
-   --workers value      Number of worker threads that execute in parallel (default: 4)
-   --skip-transfer-txs  Skip executing transactions that only transfer ETH
-   --skip-call-txs      Skip executing CALL transactions to accounts with contract bytecode
-   --skip-create-txs    Skip executing CREATE transactions
-   --hard-fork value    Hard-fork block number, won't change block number in Env for NUMBER instruction
-                          1: Frontier
-                          1150000: Homestead
-                          2463000: Tangerine Whistle
-                          2675000: Spurious Dragon
-                          4370000: Byzantium
-                          7280000: Constantinople + Petersburg
-                          9069000: Istanbul
-                          12244000: Berlin
-                          12965000: London (default: 12965000)
-   --substatedir value  Data directory for substate recorder/replayer (default: "substate.ethereum")
+   
+          --workers value                (default: 4)
+                Number of worker threads (goroutines), 0 for current CPU physical cores
+   
+          --skip-transfer-txs            (default: false)
+                Skip executing transactions that only transfer ETH
+   
+          --skip-call-txs                (default: false)
+                Skip executing CALL transactions to accounts with contract bytecode
+   
+          --skip-create-txs              (default: false)
+                Skip executing CREATE transactions
+   
+          --hard-fork value              (default: 12965000)
+                Hard-fork block number, won't change block number in Env for NUMBER
+                instruction
+                    1: Frontier
+                    1150000: Homestead
+                    2463000: Tangerine Whistle
+                  
+                2675000: Spurious Dragon
+                    4370000: Byzantium
+                    7280000: Constantinople +
+                Petersburg
+                    9069000: Istanbul
+                    12244000: Berlin
+                    12965000: London
+   
+          --substatedir value            (default: "substate.ethereum")
+                Data directory for substate recorder/replayer
+   
+          --block-segment value         
+                Single block segment (e.g. 1001, 1_001, 1_001-2_000, 1-2k, 1-2M)
+   
+          --help, -h                     (default: false)
+                show help
 ```
 
 ## Substate DB manipulation
-`substate-cli db` is an additional command to directly manipulate substate DBs.
+`substate-cli db-*` commands are additional commands to directly manipulate substate DBs.
 
-### `upgrade`
-`substate-cli db upgrade` command converts the old DB layout (`stage1-substate`) used for the USENIX ATC'21 paper to the latest DB layout (`substate.ethereum`).
+### `db-upgrade`
+`substate-cli db-upgrade` command converts the old DB layout (`stage1-substate`) used for the USENIX ATC'21 paper to the latest DB layout (`substate.ethereum`).
 ```
-./substate-cli db upgrade stage1-substate substate.ethereum
-```
-
-### `clone`
-`substate-cli db clone` command reads substates of a given block range and copies them in a substate DB clone.
-```
-./substate-cli db clone srcdb dstdb 46147 50000
+./substate-cli db-upgrade --old-path stage1-substate --new-path substate.ethereum
 ```
 
-### `compact`
-`substate-cli db compact` command compacts any LevelDB instance including the substate DB.
+### `db-clone`
+`substate-cli db-clone` command reads substates of a given block range and copies them in a substate DB clone.
 ```
-./substate-cli db compact substate.ethereum
+./substate-cli db-clone --src-path srcdb --dst-path dstdb --block-segment 1-2M --workers 0
+```
+
+### `db-compact`
+`substate-cli db-compact` command compacts any LevelDB instance including the substate DB.
+```
+./substate-cli db-compact --substatedir substate.ethereum
 ```
 
 ## Debugging replayer
