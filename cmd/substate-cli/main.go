@@ -11,19 +11,6 @@ import (
 )
 
 var (
-	dbCommand = &cli.Command{
-		Name:        "db",
-		Usage:       "A set of commands on substate DB",
-		Description: "",
-		Subcommands: []*cli.Command{
-			db.UpgradeCommand,
-			db.CloneCommand,
-			db.CompactCommand,
-		},
-	}
-)
-
-var (
 	app = flags.NewApp("Ethereum substate command line interface")
 )
 
@@ -32,7 +19,9 @@ func init() {
 	app.Commands = []*cli.Command{
 		replay.ReplayCommand,
 		replay.ReplayForkCommand,
-		dbCommand,
+		db.UpgradeCommand,
+		db.CloneCommand,
+		db.CompactCommand,
 	}
 }
 

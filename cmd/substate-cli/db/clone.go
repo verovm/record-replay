@@ -9,10 +9,9 @@ import (
 )
 
 var CloneCommand = &cli.Command{
-	Action:    clone,
-	Name:      "clone",
-	Usage:     "Create a clone DB of a given block segment",
-	ArgsUsage: "<srcPath> <dstPath> <blockNumFirst> <blockNumLast>",
+	Action: clone,
+	Name:   "db-clone",
+	Usage:  "Create a clone DB of a given block segment",
 	Flags: []cli.Flag{
 		research.WorkersFlag,
 		research.BlockSegmentFlag,
@@ -32,6 +31,7 @@ substate-cli db clone creates a clone DB of a given block segment.
 This loads a complete substate from src-path, then save it to dst path.
 The dst-path will always store substates in the latest encoding.
 `,
+	Category: "db",
 }
 
 func clone(ctx *cli.Context) error {

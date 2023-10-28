@@ -31,6 +31,7 @@ var ReplayCommand = &cli.Command{
 	Description: `
 substate-cli replay executes transactions in the given block segment
 and check output consistency for faithful replaying.`,
+	Category: "replay",
 }
 
 // replayTask replays a transaction substate

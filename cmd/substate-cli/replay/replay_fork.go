@@ -37,6 +37,7 @@ var ReplayForkCommand = &cli.Command{
 	Description: `
 substate-cli replay executes transactions in the given block segment
 with the given hard fork config and report output comparison results.`,
+	Category: "replay",
 }
 
 var HardForkName = map[int64]string{

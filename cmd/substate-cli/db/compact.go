@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/research"
 	"github.com/syndtr/goleveldb/leveldb"
 	leveldb_opt "github.com/syndtr/goleveldb/leveldb/opt"
 	leveldb_util "github.com/syndtr/goleveldb/leveldb/util"
@@ -12,24 +13,22 @@ import (
 )
 
 var CompactCommand = &cli.Command{
-	Action:    compact,
-	Name:      "compact",
-	Usage:     "Compat LevelDB - discarding deleted and overwritten versions",
-	ArgsUsage: "<dbPath>",
-	Flags:     []cli.Flag{},
+	Action: compact,
+	Name:   "db-compact",
+	Usage:  "Compat LevelDB isntance",
+	Flags: []cli.Flag{
+		research.SubstateDirFlag,
+	},
 	Description: `
-The substate-cli db compact command requires one argument:
-	<dbPath>
-<dbPath> is the target LevelDB instance to compact.`,
+The substate-cli db compact LevelDB instance - discarding deleted and
+overwritten versions`,
+	Category: "db",
 }
 
 func compact(ctx *cli.Context) error {
 	var err error
-	if ctx.Args().Len() != 1 {
-		return fmt.Errorf("substate-cli db compact: command requires exactly one arguments")
-	}
 
-	dbPath := ctx.Args().Get(0)
+	dbPath := ctx.Path(research.SubstateDirFlag.Name)
 	dbOpt := &leveldb_opt.Options{
 		BlockCacheCapacity:     1 * leveldb_opt.GiB,
 		OpenFilesCacheCapacity: 50,

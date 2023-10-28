@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	SubstateDirFlag = &cli.StringFlag{
+	SubstateDirFlag = &cli.PathFlag{
 		Name:  "substatedir",
 		Usage: "Data directory for substate recorder/replayer",
 		Value: "substate.ethereum",
@@ -65,7 +65,7 @@ func CloseFakeSubstateDB() {
 }
 
 func SetSubstateFlags(ctx *cli.Context) {
-	substateDir = ctx.String(SubstateDirFlag.Name)
+	substateDir = ctx.Path(SubstateDirFlag.Name)
 	fmt.Printf("record-replay: --substatedir=%s\n", substateDir)
 }
 

@@ -15,14 +15,23 @@ import (
 )
 
 var UpgradeCommand = &cli.Command{
-	Action:    upgrade,
-	Name:      "upgrade",
-	Usage:     "upgrade old DB layout (stage1-substate/) to new unified DB layout (substate.ethereum)",
-	ArgsUsage: "<stage1-substate> <substate.ethereum>",
-	Flags:     []cli.Flag{},
+	Action: upgrade,
+	Name:   "db-upgrade",
+	Usage:  "upgrade old DB layout (stage1-substate/) to new unified DB layout (substate.ethereum)",
+	Flags: []cli.Flag{
+		&cli.PathFlag{
+			Name:     "old-path",
+			Usage:    "<stage1-substate>",
+			Required: true,
+		},
+		&cli.PathFlag{
+			Name:     "new-path",
+			Usage:    "<substate.ethereum>",
+			Required: true,
+		},
+	},
 	Description: `
-The substate db upgrade command requires two arguments:
-<stage1-substate> <substate.ethereum>
+The substate db upgrade command change old DB layout to new unified DB layout.
 
 <stage1-substate> is old DB layout:
 - stage1-substate/substate is a DB with ("block_tx" -> substateRLP) pairs
@@ -34,18 +43,15 @@ represents different data types as follows:
 T and N are encoded in a big-endian 64-bit binary.
 - 1c: code, a key is "1c"+codeHash where codeHash is Keccak256 hash of the bytecode.
 `,
+	Category: "db",
 }
 
 func upgrade(ctx *cli.Context) error {
-	if ctx.Args().Len() != 2 {
-		return fmt.Errorf("substate-cli db upgrade: command requires exactly 2 arguments")
-	}
-
-	oldPath := ctx.Args().Get(0)
+	oldPath := ctx.Path("old-path")
 	oldSubstatePath := filepath.Join(oldPath, "substate")
 	oldCodePath := filepath.Join(oldPath, "code")
 
-	newPath := ctx.Args().Get(1)
+	newPath := ctx.Path("new-path")
 
 	var (
 		err           error
