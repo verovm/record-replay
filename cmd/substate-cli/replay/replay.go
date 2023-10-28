@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
+	"github.com/ethereum/go-ethereum/rlp"
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -161,6 +162,9 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 			fmt.Printf("inconsistent result\n")
 			jbytes, _ = json.MarshalIndent(outputResult, "", " ")
 			fmt.Printf("==== outputResult:\n%s\n", jbytes)
+			// Clear log fields which are not saved in DB
+			rlpBytes, _ := rlp.EncodeToBytes(evmResult.Logs)
+			_ = rlp.DecodeBytes(rlpBytes, &evmResult.Logs)
 			jbytes, _ = json.MarshalIndent(evmResult, "", " ")
 			fmt.Printf("==== evmResult:\n%s\n", jbytes)
 			fmt.Println()
