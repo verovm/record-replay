@@ -5,11 +5,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/urfave/cli/v2"
 )
 
 var (
-	SubstateDirFlag = cli.StringFlag{
+	SubstateDirFlag = &cli.StringFlag{
 		Name:  "substatedir",
 		Usage: "Data directory for substate recorder/replayer",
 		Value: "substate.ethereum",

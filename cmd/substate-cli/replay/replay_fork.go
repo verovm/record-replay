@@ -18,11 +18,11 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
 	"github.com/ethereum/go-ethereum/tests"
-	cli "gopkg.in/urfave/cli.v1"
+	cli "github.com/urfave/cli/v2"
 )
 
 // record-replay: replay-fork command
-var ReplayForkCommand = cli.Command{
+var ReplayForkCommand = &cli.Command{
 	Action:    replayForkAction,
 	Name:      "replay-fork",
 	Usage:     "executes and check output consistency of all transactions in the range with the given hard-fork",
@@ -70,7 +70,7 @@ func hardForkFlagDefault() int64 {
 	return v
 }
 
-var HardForkFlag = cli.Int64Flag{
+var HardForkFlag = &cli.Int64Flag{
 	Name: "hard-fork",
 	Usage: func() string {
 		s := ""
@@ -156,7 +156,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		Transfer:    core.Transfer,
 		Coinbase:    inputEnv.Coinbase,
 		BlockNumber: new(big.Int).SetUint64(inputEnv.Number),
-		Time:        new(big.Int).SetUint64(inputEnv.Timestamp),
+		Time:        inputEnv.Timestamp,
 		Difficulty:  inputEnv.Difficulty,
 		GasLimit:    inputEnv.GasLimit,
 		GetHash:     getHash,
@@ -166,19 +166,30 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		blockCtx.BaseFee = new(big.Int).Set(inputEnv.BaseFee)
 	}
 
-	msg := inputMessage.AsMessage()
+	msg := &core.Message{
+		To:         inputMessage.To,
+		From:       inputMessage.From,
+		Nonce:      inputMessage.Nonce,
+		Value:      inputMessage.Value,
+		GasLimit:   inputMessage.Gas,
+		GasPrice:   inputMessage.GasPrice,
+		GasFeeCap:  inputMessage.GasFeeCap,
+		GasTipCap:  inputMessage.GasTipCap,
+		Data:       inputMessage.Data,
+		AccessList: inputMessage.AccessList,
+
+		SkipAccountChecks: !inputMessage.CheckNonce,
+	}
 
 	tracer, err := getTracerFn(txIndex, txHash)
 	if err != nil {
 		return err
 	}
 	vmConfig.Tracer = tracer
-	vmConfig.Debug = (tracer != nil)
-	statedb.Prepare(txHash, txIndex)
 
 	txCtx := vm.TxContext{
-		GasPrice: msg.GasPrice(),
-		Origin:   msg.From(),
+		GasPrice: msg.GasPrice,
+		Origin:   msg.From,
 	}
 
 	chainConfig := ReplayForkChainConfig
@@ -186,6 +197,10 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		// If blockCtx.BaseFee is nil, assume blockCtx.BaseFee is zero
 		blockCtx.BaseFee = new(big.Int)
 	}
+
+	rules := chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time)
+	statedb.Prepare(rules, txCtx.Origin, blockCtx.Coinbase, msg.To, vm.ActivePrecompiles(rules), msg.AccessList)
+
 	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
 	snapshot := statedb.Snapshot()
 	msgResult, err := core.ApplyMessage(evm, msg, gaspool)
@@ -211,10 +226,10 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	} else {
 		evmResult.Status = types.ReceiptStatusSuccessful
 	}
-	evmResult.Logs = statedb.GetLogs(txHash, blockHash)
+	evmResult.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
 	evmResult.Bloom = types.BytesToBloom(types.LogsBloom(evmResult.Logs))
-	if to := msg.To(); to == nil {
-		evmResult.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce())
+	if to := msg.To; to == nil {
+		evmResult.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
 	}
 	evmResult.GasUsed = msgResult.UsedGas
 
@@ -333,7 +348,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 func replayForkAction(ctx *cli.Context) error {
 	var err error
 
-	if len(ctx.Args()) != 2 {
+	if ctx.Args().Len() != 2 {
 		return fmt.Errorf("substate-cli replay-fork command requires exactly 2 arguments")
 	}
 

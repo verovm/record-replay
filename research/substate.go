@@ -166,23 +166,23 @@ type SubstateMessage struct {
 	GasTipCap *big.Int // GasPrice if EIP-1559 is not activated
 }
 
-func NewSubstateMessage(msg *types.Message) *SubstateMessage {
+func NewSubstateMessage(tx *types.Transaction, from common.Address, gasPrice *big.Int) *SubstateMessage {
 	var smsg = &SubstateMessage{}
 
-	smsg.Nonce = msg.Nonce()
-	smsg.CheckNonce = !msg.IsFake()
-	smsg.GasPrice = msg.GasPrice()
-	smsg.Gas = msg.Gas()
+	smsg.Nonce = tx.Nonce()
+	smsg.CheckNonce = true
+	smsg.GasPrice = gasPrice
+	smsg.Gas = tx.Gas()
 
-	smsg.From = msg.From()
-	smsg.To = msg.To()
-	smsg.Value = msg.Value()
-	smsg.Data = msg.Data()
+	smsg.From = from
+	smsg.To = tx.To()
+	smsg.Value = tx.Value()
+	smsg.Data = tx.Data()
 
-	smsg.AccessList = msg.AccessList()
+	smsg.AccessList = tx.AccessList()
 
-	smsg.GasFeeCap = msg.GasFeeCap()
-	smsg.GasTipCap = msg.GasTipCap()
+	smsg.GasFeeCap = tx.GasFeeCap()
+	smsg.GasTipCap = tx.GasTipCap()
 
 	return smsg
 }
@@ -235,13 +235,6 @@ func (msg *SubstateMessage) DataHash() common.Hash {
 		msg.dataHash = &dataHash
 	}
 	return *msg.dataHash
-}
-
-func (msg *SubstateMessage) AsMessage() types.Message {
-	return types.NewMessage(
-		msg.From, msg.To, msg.Nonce, msg.Value,
-		msg.Gas, msg.GasPrice, msg.GasFeeCap, msg.GasTipCap,
-		msg.Data, msg.AccessList, !msg.CheckNonce)
 }
 
 // modification of types.Receipt

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"reflect"
 	"strconv"
 	"sync/atomic"
@@ -31,6 +32,7 @@ import (
 )
 
 var (
+	ErrBadResult                 = errors.New("bad result in JSON-RPC response")
 	ErrClientQuit                = errors.New("client is closed")
 	ErrNoResult                  = errors.New("no result in JSON-RPC response")
 	ErrSubscriptionQueueOverflow = errors.New("subscription queue overflow")
@@ -58,12 +60,6 @@ const (
 	maxClientSubscriptionBuffer = 20000
 )
 
-const (
-	httpScheme = "http"
-	wsScheme   = "ws"
-	ipcScheme  = "ipc"
-)
-
 // BatchElem is an element in a batch request.
 type BatchElem struct {
 	Method string
@@ -80,7 +76,7 @@ type BatchElem struct {
 // Client represents a connection to an RPC server.
 type Client struct {
 	idgen    func() ID // for subscriptions
-	scheme   string    // connection type: http, ws or ipc
+	isHTTP   bool      // connection type: http, ws or ipc
 	services *serviceRegistry
 
 	idCounter uint32
@@ -105,7 +101,7 @@ type Client struct {
 	reqTimeout  chan *requestOp  // removes response IDs when call timeout expires
 }
 
-type reconnectFunc func(ctx context.Context) (ServerCodec, error)
+type reconnectFunc func(context.Context) (ServerCodec, error)
 
 type clientContextKey struct{}
 
@@ -115,11 +111,9 @@ type clientConn struct {
 }
 
 func (c *Client) newClientConn(conn ServerCodec) *clientConn {
-	ctx := context.WithValue(context.Background(), clientContextKey{}, c)
-	// Http connections have already set the scheme
-	if !c.isHTTP() && c.scheme != "" {
-		ctx = context.WithValue(ctx, "scheme", c.scheme)
-	}
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, clientContextKey{}, c)
+	ctx = context.WithValue(ctx, peerInfoContextKey{}, conn.peerInfo())
 	handler := newHandler(ctx, conn, c.idgen, c.services)
 	return &clientConn{conn, handler}
 }
@@ -145,7 +139,7 @@ func (op *requestOp) wait(ctx context.Context, c *Client) (*jsonrpcMessage, erro
 	select {
 	case <-ctx.Done():
 		// Send the timeout to dispatch so it can remove the request IDs.
-		if !c.isHTTP() {
+		if !c.isHTTP {
 			select {
 			case c.reqTimeout <- op:
 			case <-c.closing:
@@ -161,14 +155,16 @@ func (op *requestOp) wait(ctx context.Context, c *Client) (*jsonrpcMessage, erro
 //
 // The currently supported URL schemes are "http", "https", "ws" and "wss". If rawurl is a
 // file name with no URL scheme, a local socket connection is established using UNIX
-// domain sockets on supported platforms and named pipes on Windows. If you want to
-// configure transport options, use DialHTTP, DialWebsocket or DialIPC instead.
+// domain sockets on supported platforms and named pipes on Windows.
+//
+// If you want to further configure the transport, use DialOptions instead of this
+// function.
 //
 // For websocket connections, the origin is set to the local host name.
 //
-// The client reconnects automatically if the connection is lost.
+// The client reconnects automatically when the connection is lost.
 func Dial(rawurl string) (*Client, error) {
-	return DialContext(context.Background(), rawurl)
+	return DialOptions(context.Background(), rawurl)
 }
 
 // DialContext creates a new RPC client, just like Dial.
@@ -176,25 +172,49 @@ func Dial(rawurl string) (*Client, error) {
 // The context is used to cancel or time out the initial connection establishment. It does
 // not affect subsequent interactions with the client.
 func DialContext(ctx context.Context, rawurl string) (*Client, error) {
+	return DialOptions(ctx, rawurl)
+}
+
+// DialOptions creates a new RPC client for the given URL. You can supply any of the
+// pre-defined client options to configure the underlying transport.
+//
+// The context is used to cancel or time out the initial connection establishment. It does
+// not affect subsequent interactions with the client.
+//
+// The client reconnects automatically when the connection is lost.
+func DialOptions(ctx context.Context, rawurl string, options ...ClientOption) (*Client, error) {
 	u, err := url.Parse(rawurl)
 	if err != nil {
 		return nil, err
 	}
+
+	cfg := new(clientConfig)
+	for _, opt := range options {
+		opt.applyOption(cfg)
+	}
+
+	var reconnect reconnectFunc
 	switch u.Scheme {
 	case "http", "https":
-		return DialHTTP(rawurl)
+		reconnect = newClientTransportHTTP(rawurl, cfg)
 	case "ws", "wss":
-		return DialWebsocket(ctx, rawurl, "")
+		rc, err := newClientTransportWS(rawurl, cfg)
+		if err != nil {
+			return nil, err
+		}
+		reconnect = rc
 	case "stdio":
-		return DialStdIO(ctx)
+		reconnect = newClientTransportIO(os.Stdin, os.Stdout)
 	case "":
-		return DialIPC(ctx, rawurl)
+		reconnect = newClientTransportIPC(rawurl)
 	default:
 		return nil, fmt.Errorf("no known transport for URL scheme %q", u.Scheme)
 	}
+
+	return newClient(ctx, reconnect)
 }
 
-// Client retrieves the client from the context, if any. This can be used to perform
+// ClientFromContext retrieves the client from the context, if any. This can be used to perform
 // 'reverse calls' in a handler method.
 func ClientFromContext(ctx context.Context) (*Client, bool) {
 	client, ok := ctx.Value(clientContextKey{}).(*Client)
@@ -212,18 +232,10 @@ func newClient(initctx context.Context, connect reconnectFunc) (*Client, error) 
 }
 
 func initClient(conn ServerCodec, idgen func() ID, services *serviceRegistry) *Client {
-	scheme := ""
-	switch conn.(type) {
-	case *httpConn:
-		scheme = httpScheme
-	case *websocketCodec:
-		scheme = wsScheme
-	case *jsonCodec:
-		scheme = ipcScheme
-	}
+	_, isHTTP := conn.(*httpConn)
 	c := &Client{
+		isHTTP:      isHTTP,
 		idgen:       idgen,
-		scheme:      scheme,
 		services:    services,
 		writeConn:   conn,
 		close:       make(chan struct{}),
@@ -236,7 +248,7 @@ func initClient(conn ServerCodec, idgen func() ID, services *serviceRegistry) *C
 		reqSent:     make(chan error, 1),
 		reqTimeout:  make(chan *requestOp),
 	}
-	if !c.isHTTP() {
+	if !isHTTP {
 		go c.dispatch(conn)
 	}
 	return c
@@ -267,7 +279,7 @@ func (c *Client) SupportedModules() (map[string]string, error) {
 
 // Close closes the client, aborting any in-flight requests.
 func (c *Client) Close() {
-	if c.isHTTP() {
+	if c.isHTTP {
 		return
 	}
 	select {
@@ -281,7 +293,7 @@ func (c *Client) Close() {
 // This method only works for clients using HTTP, it doesn't have
 // any effect for clients using another transport.
 func (c *Client) SetHeader(key, value string) {
-	if !c.isHTTP() {
+	if !c.isHTTP {
 		return
 	}
 	conn := c.writeConn.(*httpConn)
@@ -315,7 +327,7 @@ func (c *Client) CallContext(ctx context.Context, result interface{}, method str
 	}
 	op := &requestOp{ids: []json.RawMessage{msg.ID}, resp: make(chan *jsonrpcMessage, 1)}
 
-	if c.isHTTP() {
+	if c.isHTTP {
 		err = c.sendHTTP(ctx, op, msg)
 	} else {
 		err = c.send(ctx, op, msg)
@@ -333,7 +345,10 @@ func (c *Client) CallContext(ctx context.Context, result interface{}, method str
 	case len(resp.Result) == 0:
 		return ErrNoResult
 	default:
-		return json.Unmarshal(resp.Result, &result)
+		if result == nil {
+			return nil
+		}
+		return json.Unmarshal(resp.Result, result)
 	}
 }
 
@@ -349,7 +364,7 @@ func (c *Client) BatchCall(b []BatchElem) error {
 	return c.BatchCallContext(ctx, b)
 }
 
-// BatchCall sends all given requests as a single batch and waits for the server
+// BatchCallContext sends all given requests as a single batch and waits for the server
 // to return a response for all of them. The wait duration is bounded by the
 // context's deadline.
 //
@@ -378,7 +393,7 @@ func (c *Client) BatchCallContext(ctx context.Context, b []BatchElem) error {
 	}
 
 	var err error
-	if c.isHTTP() {
+	if c.isHTTP {
 		err = c.sendBatchHTTP(ctx, op, msgs)
 	} else {
 		err = c.send(ctx, op, msgs)
@@ -417,7 +432,7 @@ func (c *Client) Notify(ctx context.Context, method string, args ...interface{})
 	}
 	msg.ID = nil
 
-	if c.isHTTP() {
+	if c.isHTTP {
 		return c.sendHTTP(ctx, op, msg)
 	}
 	return c.send(ctx, op, msg)
@@ -450,12 +465,12 @@ func (c *Client) Subscribe(ctx context.Context, namespace string, channel interf
 	// Check type of channel first.
 	chanVal := reflect.ValueOf(channel)
 	if chanVal.Kind() != reflect.Chan || chanVal.Type().ChanDir()&reflect.SendDir == 0 {
-		panic("first argument to Subscribe must be a writable channel")
+		panic(fmt.Sprintf("channel argument of Subscribe has type %T, need writable channel", channel))
 	}
 	if chanVal.IsNil() {
 		panic("channel given to Subscribe must not be nil")
 	}
-	if c.isHTTP() {
+	if c.isHTTP {
 		return nil, ErrNotificationsUnsupported
 	}
 
@@ -509,13 +524,13 @@ func (c *Client) send(ctx context.Context, op *requestOp, msg interface{}) error
 }
 
 func (c *Client) write(ctx context.Context, msg interface{}, retry bool) error {
-	// The previous write failed. Try to establish a new connection.
 	if c.writeConn == nil {
+		// The previous write failed. Try to establish a new connection.
 		if err := c.reconnect(ctx); err != nil {
 			return err
 		}
 	}
-	err := c.writeConn.writeJSON(ctx, msg)
+	err := c.writeConn.writeJSON(ctx, msg, false)
 	if err != nil {
 		c.writeConn = nil
 		if !retry {
@@ -648,7 +663,8 @@ func (c *Client) read(codec ServerCodec) {
 	for {
 		msgs, batch, err := codec.readBatch()
 		if _, ok := err.(*json.SyntaxError); ok {
-			codec.writeJSON(context.Background(), errorMessage(&parseError{err.Error()}))
+			msg := errorMessage(&parseError{err.Error()})
+			codec.writeJSON(context.Background(), msg, true)
 		}
 		if err != nil {
 			c.readErr <- err
@@ -656,8 +672,4 @@ func (c *Client) read(codec ServerCodec) {
 		}
 		c.readOp <- readOp{msgs, batch}
 	}
-}
-
-func (c *Client) isHTTP() bool {
-	return c.scheme == httpScheme
 }

@@ -17,6 +17,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -31,8 +32,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/usbwallet"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/ethereum/go-ethereum/signer/storage"
 )
@@ -188,23 +191,24 @@ func StartClefAccountManager(ksLocation string, nousb, lightKDF bool, scpath str
 
 // MetadataFromContext extracts Metadata from a given context.Context
 func MetadataFromContext(ctx context.Context) Metadata {
+	info := rpc.PeerInfoFromContext(ctx)
+
 	m := Metadata{"NA", "NA", "NA", "", ""} // batman
 
-	if v := ctx.Value("remote"); v != nil {
-		m.Remote = v.(string)
+	if info.Transport != "" {
+		if info.Transport == "http" {
+			m.Scheme = info.HTTP.Version
+		}
+		m.Scheme = info.Transport
 	}
-	if v := ctx.Value("scheme"); v != nil {
-		m.Scheme = v.(string)
+	if info.RemoteAddr != "" {
+		m.Remote = info.RemoteAddr
 	}
-	if v := ctx.Value("local"); v != nil {
-		m.Local = v.(string)
+	if info.HTTP.Host != "" {
+		m.Local = info.HTTP.Host
 	}
-	if v := ctx.Value("Origin"); v != nil {
-		m.Origin = v.(string)
-	}
-	if v := ctx.Value("User-Agent"); v != nil {
-		m.UserAgent = v.(string)
-	}
+	m.Origin = info.HTTP.Origin
+	m.UserAgent = info.HTTP.UserAgent
 	return m
 }
 
@@ -317,7 +321,6 @@ func (api *SignerAPI) openTrezor(url accounts.URL) {
 		log.Warn("failed to open wallet", "wallet", url, "err", err)
 		return
 	}
-
 }
 
 // startUSBListener starts a listener for USB events, for hardware wallet interaction
@@ -408,7 +411,7 @@ func (api *SignerAPI) List(ctx context.Context) ([]common.Address, error) {
 
 // New creates a new password protected Account. The private key is protected with
 // the given password. Users are responsible to backup the private key that is stored
-// in the keystore location thas was specified when this API was created.
+// in the keystore location that was specified when this API was created.
 func (api *SignerAPI) New(ctx context.Context) (common.Address, error) {
 	if be := api.am.Backends(keystore.KeyStoreType); len(be) == 0 {
 		return common.Address{}, errors.New("password based accounts not supported")
@@ -610,7 +613,6 @@ func (api *SignerAPI) SignTransaction(ctx context.Context, args apitypes.SendTxA
 	api.UI.OnApprovedTx(response)
 	// ...and to the external caller
 	return &response, nil
-
 }
 
 func (api *SignerAPI) SignGnosisSafeTx(ctx context.Context, signerAddress common.MixedcaseAddress, gnosisTx GnosisSafeTx, methodSelector *string) (*GnosisSafeTx, error) {
@@ -627,7 +629,26 @@ func (api *SignerAPI) SignGnosisSafeTx(ctx context.Context, signerAddress common
 		}
 	}
 	typedData := gnosisTx.ToTypedData()
+	// might aswell error early.
+	// we are expected to sign. If our calculated hash does not match what they want,
+	// The gnosis safetx input contains a 'safeTxHash' which is the expected safeTxHash that
+	sighash, _, err := apitypes.TypedDataAndHash(typedData)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(sighash, gnosisTx.InputExpHash.Bytes()) {
+		// It might be the case that the json is missing chain id.
+		if gnosisTx.ChainId == nil {
+			gnosisTx.ChainId = (*math.HexOrDecimal256)(api.chainID)
+			typedData = gnosisTx.ToTypedData()
+			sighash, _, _ = apitypes.TypedDataAndHash(typedData)
+			if !bytes.Equal(sighash, gnosisTx.InputExpHash.Bytes()) {
+				return nil, fmt.Errorf("mismatched safeTxHash; have %#x want %#x", sighash, gnosisTx.InputExpHash[:])
+			}
+		}
+	}
 	signature, preimage, err := api.signTypedData(ctx, signerAddress, typedData, msgs)
+
 	if err != nil {
 		return nil, err
 	}
@@ -635,7 +656,7 @@ func (api *SignerAPI) SignGnosisSafeTx(ctx context.Context, signerAddress common
 
 	gnosisTx.Signature = signature
 	gnosisTx.SafeTxHash = common.BytesToHash(preimage)
-	gnosisTx.Sender = *checkSummedSender // Must be checksumed to be accepted by relay
+	gnosisTx.Sender = *checkSummedSender // Must be checksummed to be accepted by relay
 
 	return &gnosisTx, nil
 }

@@ -8,10 +8,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	leveldb_opt "github.com/syndtr/goleveldb/leveldb/opt"
 	leveldb_util "github.com/syndtr/goleveldb/leveldb/util"
-	cli "gopkg.in/urfave/cli.v1"
+	cli "github.com/urfave/cli/v2"
 )
 
-var CompactCommand = cli.Command{
+var CompactCommand = &cli.Command{
 	Action:    compact,
 	Name:      "compact",
 	Usage:     "Compat LevelDB - discarding deleted and overwritten versions",
@@ -25,7 +25,7 @@ The substate-cli db compact command requires one argument:
 
 func compact(ctx *cli.Context) error {
 	var err error
-	if len(ctx.Args()) != 1 {
+	if ctx.Args().Len() != 1 {
 		return fmt.Errorf("substate-cli db compact: command requires exactly one arguments")
 	}
 

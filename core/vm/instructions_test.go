@@ -20,10 +20,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
@@ -44,8 +47,15 @@ var alphabetSoup = "ABCDEF090807060504030201ffffffffffffffffffffffffffffffffffff
 var commonParams []*twoOperandParams
 var twoOpMethods map[string]executionFunc
 
-func init() {
+type contractRef struct {
+	addr common.Address
+}
 
+func (c contractRef) Address() common.Address {
+	return c.addr
+}
+
+func init() {
 	// Params is a list of common edgecases that should be used for some common tests
 	params := []string{
 		"0000000000000000000000000000000000000000000000000000000000000000", // 0
@@ -91,7 +101,6 @@ func init() {
 }
 
 func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFunc, name string) {
-
 	var (
 		env            = NewEVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
 		stack          = newstack()
@@ -194,7 +203,7 @@ func TestAddMod(t *testing.T) {
 	var (
 		env            = NewEVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
 		stack          = newstack()
-		evmInterpreter = NewEVMInterpreter(env, env.Config)
+		evmInterpreter = NewEVMInterpreter(env)
 		pc             = uint64(0)
 	)
 	tests := []struct {
@@ -228,38 +237,38 @@ func TestAddMod(t *testing.T) {
 	}
 }
 
-// getResult is a convenience function to generate the expected values
-func getResult(args []*twoOperandParams, opFn executionFunc) []TwoOperandTestcase {
-	var (
-		env         = NewEVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
-		stack       = newstack()
-		pc          = uint64(0)
-		interpreter = env.interpreter
-	)
-	result := make([]TwoOperandTestcase, len(args))
-	for i, param := range args {
-		x := new(uint256.Int).SetBytes(common.Hex2Bytes(param.x))
-		y := new(uint256.Int).SetBytes(common.Hex2Bytes(param.y))
-		stack.push(x)
-		stack.push(y)
-		opFn(&pc, interpreter, &ScopeContext{nil, stack, nil})
-		actual := stack.pop()
-		result[i] = TwoOperandTestcase{param.x, param.y, fmt.Sprintf("%064x", actual)}
-	}
-	return result
-}
-
 // utility function to fill the json-file with testcases
 // Enable this test to generate the 'testcases_xx.json' files
 func TestWriteExpectedValues(t *testing.T) {
 	t.Skip("Enable this test to create json test cases.")
+
+	// getResult is a convenience function to generate the expected values
+	getResult := func(args []*twoOperandParams, opFn executionFunc) []TwoOperandTestcase {
+		var (
+			env         = NewEVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
+			stack       = newstack()
+			pc          = uint64(0)
+			interpreter = env.interpreter
+		)
+		result := make([]TwoOperandTestcase, len(args))
+		for i, param := range args {
+			x := new(uint256.Int).SetBytes(common.Hex2Bytes(param.x))
+			y := new(uint256.Int).SetBytes(common.Hex2Bytes(param.y))
+			stack.push(x)
+			stack.push(y)
+			opFn(&pc, interpreter, &ScopeContext{nil, stack, nil})
+			actual := stack.pop()
+			result[i] = TwoOperandTestcase{param.x, param.y, fmt.Sprintf("%064x", actual)}
+		}
+		return result
+	}
 
 	for name, method := range twoOpMethods {
 		data, err := json.Marshal(getResult(commonParams, method))
 		if err != nil {
 			t.Fatal(err)
 		}
-		_ = ioutil.WriteFile(fmt.Sprintf("testdata/testcases_%v.json", name), data, 0644)
+		_ = os.WriteFile(fmt.Sprintf("testdata/testcases_%v.json", name), data, 0644)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -269,7 +278,7 @@ func TestWriteExpectedValues(t *testing.T) {
 // TestJsonTestcases runs through all the testcases defined as json-files
 func TestJsonTestcases(t *testing.T) {
 	for name := range twoOpMethods {
-		data, err := ioutil.ReadFile(fmt.Sprintf("testdata/testcases_%v.json", name))
+		data, err := os.ReadFile(fmt.Sprintf("testdata/testcases_%v.json", name))
 		if err != nil {
 			t.Fatal("Failed to read file", err)
 		}
@@ -283,25 +292,32 @@ func opBenchmark(bench *testing.B, op executionFunc, args ...string) {
 	var (
 		env            = NewEVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
 		stack          = newstack()
-		evmInterpreter = NewEVMInterpreter(env, env.Config)
+		scope          = &ScopeContext{nil, stack, nil}
+		evmInterpreter = NewEVMInterpreter(env)
 	)
 
 	env.interpreter = evmInterpreter
 	// convert args
-	byteArgs := make([][]byte, len(args))
+	intArgs := make([]*uint256.Int, len(args))
 	for i, arg := range args {
-		byteArgs[i] = common.Hex2Bytes(arg)
+		intArgs[i] = new(uint256.Int).SetBytes(common.Hex2Bytes(arg))
 	}
 	pc := uint64(0)
 	bench.ResetTimer()
 	for i := 0; i < bench.N; i++ {
-		for _, arg := range byteArgs {
-			a := new(uint256.Int)
-			a.SetBytes(arg)
-			stack.push(a)
+		for _, arg := range intArgs {
+			stack.push(arg)
 		}
-		op(&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		op(&pc, evmInterpreter, scope)
 		stack.pop()
+	}
+	bench.StopTimer()
+
+	for i, arg := range args {
+		want := new(uint256.Int).SetBytes(common.Hex2Bytes(arg))
+		if have := intArgs[i]; !want.Eq(have) {
+			bench.Fatalf("input #%d mutated, have %x want %x", i, have, want)
+		}
 	}
 }
 
@@ -518,7 +534,7 @@ func TestOpMstore(t *testing.T) {
 		env            = NewEVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
 		stack          = newstack()
 		mem            = NewMemory()
-		evmInterpreter = NewEVMInterpreter(env, env.Config)
+		evmInterpreter = NewEVMInterpreter(env)
 	)
 
 	env.interpreter = evmInterpreter
@@ -544,7 +560,7 @@ func BenchmarkOpMstore(bench *testing.B) {
 		env            = NewEVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
 		stack          = newstack()
 		mem            = NewMemory()
-		evmInterpreter = NewEVMInterpreter(env, env.Config)
+		evmInterpreter = NewEVMInterpreter(env)
 	)
 
 	env.interpreter = evmInterpreter
@@ -561,12 +577,55 @@ func BenchmarkOpMstore(bench *testing.B) {
 	}
 }
 
+func TestOpTstore(t *testing.T) {
+	var (
+		statedb, _     = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		env            = NewEVM(BlockContext{}, TxContext{}, statedb, params.TestChainConfig, Config{})
+		stack          = newstack()
+		mem            = NewMemory()
+		evmInterpreter = NewEVMInterpreter(env)
+		caller         = common.Address{}
+		to             = common.Address{1}
+		contractRef    = contractRef{caller}
+		contract       = NewContract(contractRef, AccountRef(to), new(big.Int), 0)
+		scopeContext   = ScopeContext{mem, stack, contract}
+		value          = common.Hex2Bytes("abcdef00000000000000abba000000000deaf000000c0de00100000000133700")
+	)
+
+	// Add a stateObject for the caller and the contract being called
+	statedb.CreateAccount(caller)
+	statedb.CreateAccount(to)
+
+	env.interpreter = evmInterpreter
+	pc := uint64(0)
+	// push the value to the stack
+	stack.push(new(uint256.Int).SetBytes(value))
+	// push the location to the stack
+	stack.push(new(uint256.Int))
+	opTstore(&pc, evmInterpreter, &scopeContext)
+	// there should be no elements on the stack after TSTORE
+	if stack.len() != 0 {
+		t.Fatal("stack wrong size")
+	}
+	// push the location to the stack
+	stack.push(new(uint256.Int))
+	opTload(&pc, evmInterpreter, &scopeContext)
+	// there should be one element on the stack after TLOAD
+	if stack.len() != 1 {
+		t.Fatal("stack wrong size")
+	}
+	val := stack.peek()
+	if !bytes.Equal(val.Bytes(), value) {
+		t.Fatal("incorrect element read from transient storage")
+	}
+}
+
 func BenchmarkOpKeccak256(bench *testing.B) {
 	var (
 		env            = NewEVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
 		stack          = newstack()
 		mem            = NewMemory()
-		evmInterpreter = NewEVMInterpreter(env, env.Config)
+		evmInterpreter = NewEVMInterpreter(env)
 	)
 	env.interpreter = evmInterpreter
 	mem.Resize(32)
@@ -633,7 +692,6 @@ func TestCreate2Addreses(t *testing.T) {
 			expected: "0xE33C0C7F7df4809055C3ebA6c09CFe4BaF1BD9e0",
 		},
 	} {
-
 		origin := common.BytesToAddress(common.FromHex(tt.origin))
 		salt := common.BytesToHash(common.FromHex(tt.salt))
 		code := common.FromHex(tt.code)
@@ -651,6 +709,39 @@ func TestCreate2Addreses(t *testing.T) {
 		expected := common.BytesToAddress(common.FromHex(tt.expected))
 		if !bytes.Equal(expected.Bytes(), address.Bytes()) {
 			t.Errorf("test %d: expected %s, got %s", i, expected.String(), address.String())
+		}
+	}
+}
+
+func TestRandom(t *testing.T) {
+	type testcase struct {
+		name   string
+		random common.Hash
+	}
+
+	for _, tt := range []testcase{
+		{name: "empty hash", random: common.Hash{}},
+		{name: "1", random: common.Hash{0}},
+		{name: "emptyCodeHash", random: emptyCodeHash},
+		{name: "hash(0x010203)", random: crypto.Keccak256Hash([]byte{0x01, 0x02, 0x03})},
+	} {
+		var (
+			env            = NewEVM(BlockContext{Random: &tt.random}, TxContext{}, nil, params.TestChainConfig, Config{})
+			stack          = newstack()
+			pc             = uint64(0)
+			evmInterpreter = env.interpreter
+		)
+		opRandom(&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		if len(stack.data) != 1 {
+			t.Errorf("Expected one item on stack after %v, got %d: ", tt.name, len(stack.data))
+		}
+		actual := stack.pop()
+		expected, overflow := uint256.FromBig(new(big.Int).SetBytes(tt.random.Bytes()))
+		if overflow {
+			t.Errorf("Testcase %v: invalid overflow", tt.name)
+		}
+		if actual.Cmp(expected) != 0 {
+			t.Errorf("Testcase %v: expected  %x, got %x", tt.name, expected, actual)
 		}
 	}
 }

@@ -11,10 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/research"
 	"github.com/syndtr/goleveldb/leveldb"
 	leveldb_opt "github.com/syndtr/goleveldb/leveldb/opt"
-	cli "gopkg.in/urfave/cli.v1"
+	cli "github.com/urfave/cli/v2"
 )
 
-var UpgradeCommand = cli.Command{
+var UpgradeCommand = &cli.Command{
 	Action:    upgrade,
 	Name:      "upgrade",
 	Usage:     "upgrade old DB layout (stage1-substate/) to new unified DB layout (substate.ethereum)",
@@ -37,7 +37,7 @@ T and N are encoded in a big-endian 64-bit binary.
 }
 
 func upgrade(ctx *cli.Context) error {
-	if len(ctx.Args()) != 2 {
+	if ctx.Args().Len() != 2 {
 		return fmt.Errorf("substate-cli db upgrade: command requires exactly 2 arguments")
 	}
 
