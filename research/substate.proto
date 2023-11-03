@@ -1,0 +1,80 @@
+syntax = "proto3";
+package research;
+
+option go_package = "../research";
+
+message SubstatePB {
+
+    message Account {
+        uint64 nonce = 1;
+        bytes balance = 2;
+
+        message StorageEntry {
+            bytes key = 1;
+            bytes value = 2;
+        }
+        repeated StorageEntry storage = 3;
+
+        bytes code = 4;
+    }
+    message AllocEntry {
+        bytes address = 1;
+        Account account = 2;
+    }
+    repeated AllocEntry input_alloc = 1;
+    repeated AllocEntry output_alloc = 2;
+
+    message BlockEnv {
+        bytes coinbase = 1;
+        bytes difficulty = 2;
+        uint64 gas_limit = 3;
+        uint64 number = 4;
+        uint64 timestamp = 5;
+        map<uint64, bytes> block_hashes = 6;
+        optional bytes base_fee = 7;
+    }
+    BlockEnv block_env = 3;
+
+    message TxMessage {
+        uint64 nonce = 1;
+        //bool check_nonce = 2;
+        bytes gas_price = 3;
+        uint64 gas = 4;
+
+        bytes from = 5;
+        optional bytes to = 6;
+        bytes value = 7;
+
+        oneof input {
+            bytes data = 8;
+            bytes init_code_hash = 9;
+        }
+
+        message AccessListEntry {
+            bytes address = 1;
+            repeated bytes storage_keys = 2;
+        }
+        AccessListEntry access_list = 10;
+
+        optional bytes gas_fee_cap = 11;
+        optional bytes gas_tip_cap = 12;
+    }
+    TxMessage tx_message = 4;
+
+    message Result {
+        uint64 status = 1;
+        bytes bloom = 2;
+
+        message Log {
+            bytes address = 1;
+            repeated bytes topics = 2;
+            bytes data = 3;
+        }
+        repeated Log logs = 3;
+
+        bytes contract_address = 4;
+        uint64 gas_used = 5;
+    }
+    Result result = 5;
+
+}
