@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/research"
 	"github.com/holiman/uint256"
 )
 
@@ -75,6 +76,9 @@ type BlockContext struct {
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 	BaseFee     *big.Int       // Provides information for BASEFEE
 	Random      *common.Hash   // Provides information for PREVRANDAO
+
+	// reserach: BlockHashes
+	ResearchBlockHashes map[uint64]common.Hash
 }
 
 // TxContext provides the EVM with information about a transaction.
@@ -522,3 +526,46 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
+
+// record-replay: (*BlockContext).SaveSubstate
+func (b *BlockContext) SaveSubstate(substate *research.Substate) {
+	substate.BlockEnv = &research.Substate_BlockEnv{
+		Coinbase:   b.Coinbase.Bytes(),
+		Difficulty: b.Difficulty.Bytes(),
+		GasLimit:   b.GasLimit,
+		Number:     b.BlockNumber.Uint64(),
+		Timestamp:  b.Time,
+		BaseFee:    b.BaseFee.Bytes(),
+	}
+	substate.BlockEnv.BlockHashes = make(map[uint64][]byte)
+	if b.ResearchBlockHashes != nil {
+		for num64, blockHash := range b.ResearchBlockHashes {
+			substate.BlockEnv.BlockHashes[num64] = blockHash.Bytes()
+		}
+	}
+}
+
+// record-replay (*BlockContext).LoadSubstate
+func (b *BlockContext) LoadSubstate(substate *research.Substate) {
+	e := substate.BlockEnv
+
+	b.Coinbase = common.BytesToAddress(e.Coinbase)
+	b.Difficulty = new(big.Int).SetBytes(e.Difficulty)
+	b.GasLimit = e.GasLimit
+	b.BlockNumber = new(big.Int).SetUint64(e.Number)
+	b.Time = e.Timestamp
+	b.BaseFee = new(big.Int).SetBytes(e.BaseFee)
+	b.ResearchBlockHashes = make(map[uint64]common.Hash)
+	for num64, blockHash := range e.BlockHashes {
+		b.ResearchBlockHashes[num64] = common.BytesToHash(blockHash)
+	}
+
+	// functions for substate replay
+	b.GetHash = func(num64 uint64) common.Hash {
+		if b.ResearchBlockHashes == nil {
+			return common.Hash{}
+		}
+		h := b.ResearchBlockHashes[num64]
+		return h
+	}
+}

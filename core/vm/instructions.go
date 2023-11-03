@@ -22,9 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-
 	// record-replay: import core/state
-	"github.com/ethereum/go-ethereum/core/state"
 )
 
 func opAdd(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
@@ -439,10 +437,7 @@ func opBlockhash(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) (
 
 	// record-replay: convert vm.StateDB to state.StateDB and save block hash
 	defer func() {
-		statedb, ok := interpreter.evm.StateDB.(*state.StateDB)
-		if ok {
-			statedb.ResearchBlockHashes[num64] = common.BytesToHash(num.Bytes())
-		}
+		interpreter.evm.Context.ResearchBlockHashes[num64] = common.BytesToHash(num.Bytes())
 	}()
 
 	if overflow {

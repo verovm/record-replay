@@ -1,9 +1,7 @@
 package replay
 
 import (
-	"encoding/json"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -12,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
-	"github.com/ethereum/go-ethereum/rlp"
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -37,14 +34,6 @@ and check output consistency for faithful replaying.`,
 
 // replayTask replays a transaction substate
 func replayTask(block uint64, tx int, substate *research.Substate, taskPool *research.SubstateTaskPool) error {
-
-	inputAlloc := substate.InputAlloc
-	inputEnv := substate.Env
-	inputMessage := substate.Message
-
-	outputAlloc := substate.OutputAlloc
-	outputResult := substate.Result
-
 	var (
 		vmConfig    vm.Config
 		chainConfig *params.ChainConfig
@@ -62,55 +51,24 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 		return nil, nil
 	}
 
-	// getHash returns zero for block hash that does not exist
-	getHash := func(num uint64) common.Hash {
-		if inputEnv.BlockHashes == nil {
-			return common.Hash{}
-		}
-		h := inputEnv.BlockHashes[num]
-		return h
-	}
-
 	// Apply Message
 	var (
-		statedb   = MakeOffTheChainStateDB(inputAlloc)
+		statedb   = MakeOffTheChainStateDB(substate)
 		gaspool   = new(core.GasPool)
 		blockHash = common.Hash{0x01}
 		txHash    = common.Hash{0x02}
 		txIndex   = tx
 	)
 
-	gaspool.AddGas(inputEnv.GasLimit)
 	blockCtx := vm.BlockContext{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
-		Coinbase:    inputEnv.Coinbase,
-		BlockNumber: new(big.Int).SetUint64(inputEnv.Number),
-		Time:        inputEnv.Timestamp,
-		Difficulty:  inputEnv.Difficulty,
-		GasLimit:    inputEnv.GasLimit,
-		GetHash:     getHash,
 	}
+	blockCtx.LoadSubstate(substate)
+	gaspool.AddGas(blockCtx.GasLimit)
 
-	// If currentBaseFee is defined, add it to the vmContext.
-	if inputEnv.BaseFee != nil {
-		blockCtx.BaseFee = new(big.Int).Set(inputEnv.BaseFee)
-	}
-
-	msg := &core.Message{
-		To:         inputMessage.To,
-		From:       inputMessage.From,
-		Nonce:      inputMessage.Nonce,
-		Value:      inputMessage.Value,
-		GasLimit:   inputMessage.Gas,
-		GasPrice:   inputMessage.GasPrice,
-		GasFeeCap:  inputMessage.GasFeeCap,
-		GasTipCap:  inputMessage.GasTipCap,
-		Data:       inputMessage.Data,
-		AccessList: inputMessage.AccessList,
-
-		SkipAccountChecks: !inputMessage.CheckNonce,
-	}
+	msg := &core.Message{}
+	msg.LoadSubstate(substate)
 
 	tracer, err := getTracerFn(txIndex, txHash)
 	if err != nil {
@@ -126,7 +84,7 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 	statedb.SetTxContext(txHash, tx)
 
 	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
-	msgResult, err := core.ApplyMessage(evm, msg, gaspool)
+	result, err := core.ApplyMessage(evm, msg, gaspool)
 	if err != nil {
 		return err
 	}
@@ -137,90 +95,99 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 		statedb.IntermediateRoot(chainConfig.IsEIP158(blockCtx.BlockNumber))
 	}
 
-	evmResult := &research.SubstateResult{}
-	if msgResult.Failed() {
-		evmResult.Status = types.ReceiptStatusFailed
+	rr := &research.ResearchReceipt{}
+	if result.Failed() {
+		rr.Status = types.ReceiptStatusFailed
 	} else {
-		evmResult.Status = types.ReceiptStatusSuccessful
+		rr.Status = types.ReceiptStatusSuccessful
 	}
-	evmResult.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
-	evmResult.Bloom = types.BytesToBloom(types.LogsBloom(evmResult.Logs))
-	if to := msg.To; to == nil {
-		evmResult.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
+	rr.GasUsed = result.UsedGas
+
+	if msg.To == nil {
+		rr.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
 	}
-	evmResult.GasUsed = msgResult.UsedGas
+	rr.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
+	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
 
-	evmAlloc := statedb.ResearchPostAlloc
+	outSubstate := &research.Substate{}
+	statedb.SaveSubstate(outSubstate)
+	blockCtx.SaveSubstate(outSubstate)
+	msg.SaveSubstate(outSubstate)
+	rr.SaveSubstate(outSubstate)
 
-	r := outputResult.Equal(evmResult)
-	a := outputAlloc.Equal(evmAlloc)
-	if !(r && a) {
-		fmt.Println()
-		fmt.Printf("block %v, tx %v, inconsistent output report BEGIN\n", block, tx)
-		var jbytes []byte
-		if !r {
-			fmt.Printf("inconsistent result\n")
-			jbytes, _ = json.MarshalIndent(outputResult, "", " ")
-			fmt.Printf("==== outputResult:\n%s\n", jbytes)
-			// Clear log fields which are not saved in DB
-			rlpBytes, _ := rlp.EncodeToBytes(evmResult.Logs)
-			_ = rlp.DecodeBytes(rlpBytes, &evmResult.Logs)
-			jbytes, _ = json.MarshalIndent(evmResult, "", " ")
-			fmt.Printf("==== evmResult:\n%s\n", jbytes)
+	// TODO: compare substate and
+
+	/*
+		r := outputResult.Equal(evmResult)
+		a := outputAlloc.Equal(evmAlloc)
+		if !(r && a) {
 			fmt.Println()
-		}
-		if !a {
-			fmt.Printf("inconsistent output\n")
-			addrs := make(map[common.Address]struct{})
-			for k, _ := range outputAlloc {
-				addrs[k] = struct{}{}
-			}
-			for k, _ := range evmAlloc {
-				addrs[k] = struct{}{}
-			}
-			for k, _ := range addrs {
-				iv := inputAlloc[k]
-				ov := outputAlloc[k]
-				ev := evmAlloc[k]
-				if ov.Equal(ev) {
-					continue
-				}
-				kHex := k.Hex()
-				ivCopy := iv.Copy()
-				ovCopy := ov.Copy()
-				evCopy := ev.Copy()
-				ivCopy.Code = nil
-				ovCopy.Code = nil
-				evCopy.Code = nil
-				fmt.Printf("account address: %s\n", kHex)
-				fmt.Printf("==== inputAlloc ====\n")
-				jbytes, _ = json.MarshalIndent(ivCopy, "", " ")
-				fmt.Printf("%s\nCodeHash: %s\n", jbytes, iv.CodeHash())
-				fmt.Printf("==== outputAlloc ====\n")
-				jbytes, _ = json.MarshalIndent(ovCopy, "", " ")
-				fmt.Printf("%s\nCodeHash: %s\n", jbytes, ov.CodeHash())
-				fmt.Printf("==== evmAlloc ====\n")
-				jbytes, _ = json.MarshalIndent(evCopy, "", " ")
-				fmt.Printf("%s\nCodeHash: %s\n", jbytes, ev.CodeHash())
+			fmt.Printf("block %v, tx %v, inconsistent output report BEGIN\n", block, tx)
+			var jbytes []byte
+			if !r {
+				fmt.Printf("inconsistent result\n")
+				jbytes, _ = json.MarshalIndent(outputResult, "", " ")
+				fmt.Printf("==== outputResult:\n%s\n", jbytes)
+				// Clear log fields which are not saved in DB
+				rlpBytes, _ := rlp.EncodeToBytes(evmResult.Logs)
+				_ = rlp.DecodeBytes(rlpBytes, &evmResult.Logs)
+				jbytes, _ = json.MarshalIndent(evmResult, "", " ")
+				fmt.Printf("==== evmResult:\n%s\n", jbytes)
 				fmt.Println()
 			}
-		}
+			if !a {
+				fmt.Printf("inconsistent output\n")
+				addrs := make(map[common.Address]struct{})
+				for k, _ := range outputAlloc {
+					addrs[k] = struct{}{}
+				}
+				for k, _ := range evmAlloc {
+					addrs[k] = struct{}{}
+				}
+				for k, _ := range addrs {
+					iv := inputAlloc[k]
+					ov := outputAlloc[k]
+					ev := evmAlloc[k]
+					if ov.Equal(ev) {
+						continue
+					}
+					kHex := k.Hex()
+					ivCopy := iv.Copy()
+					ovCopy := ov.Copy()
+					evCopy := ev.Copy()
+					ivCopy.Code = nil
+					ovCopy.Code = nil
+					evCopy.Code = nil
+					fmt.Printf("account address: %s\n", kHex)
+					fmt.Printf("==== inputAlloc ====\n")
+					jbytes, _ = json.MarshalIndent(ivCopy, "", " ")
+					fmt.Printf("%s\nCodeHash: %s\n", jbytes, iv.CodeHash())
+					fmt.Printf("==== outputAlloc ====\n")
+					jbytes, _ = json.MarshalIndent(ovCopy, "", " ")
+					fmt.Printf("%s\nCodeHash: %s\n", jbytes, ov.CodeHash())
+					fmt.Printf("==== evmAlloc ====\n")
+					jbytes, _ = json.MarshalIndent(evCopy, "", " ")
+					fmt.Printf("%s\nCodeHash: %s\n", jbytes, ev.CodeHash())
+					fmt.Println()
+				}
+			}
 
-		// information to search the transaction traces
-		fmt.Printf("message from %s\n", inputMessage.From.Hex())
-		fmt.Printf("message to %s\n", inputMessage.To.Hex())
-		fmt.Printf("result status: %v\n", outputResult.Status)
-		if !r {
-			fmt.Printf("inconsistent result\n")
-		}
-		if !a {
-			fmt.Printf("inconsistent alloc\n")
-		}
-		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
-		fmt.Println()
+			// information to search the transaction traces
+			fmt.Printf("message from %s\n", inputMessage.From.Hex())
+			fmt.Printf("message to %s\n", inputMessage.To.Hex())
+			fmt.Printf("result status: %v\n", outputResult.Status)
+			if !r {
+				fmt.Printf("inconsistent result\n")
+			}
+			if !a {
+				fmt.Printf("inconsistent alloc\n")
+			}
+			fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
+			fmt.Println()
 
-		return fmt.Errorf("inconsistent output")
-	}
+			return fmt.Errorf("inconsistent output")
+		}
+	*/
 
 	return nil
 }

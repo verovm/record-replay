@@ -95,14 +95,26 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 
 		// record-replay: save tx substate into DBs, merge block hashes to env
-		researchSubstate := research.NewSubstate(
-			statedb.ResearchPreAlloc,
-			statedb.ResearchPostAlloc,
-			research.NewSubstateEnv(block, statedb.ResearchBlockHashes),
-			research.NewSubstateMessage(tx, msg.From, msg.GasPrice),
-			research.NewSubstateResult(receipt),
-		)
-		research.PutSubstate(block.NumberU64(), i, researchSubstate)
+		{
+			// SetTxContext method will reset statedb.Research*
+			substate := &research.Substate{}
+			statedb.SaveSubstate(substate)
+
+			// reset blockContext.ResearchBlockHashes manually
+			blockContext.SaveSubstate(substate)
+			blockContext.ResearchBlockHashes = make(map[uint64]common.Hash)
+
+			// nothing to reset
+			msg.SaveSubstate(substate)
+
+			// convert *types.Receipt to *research.Receipt for SaveSubstae method
+			rr := research.NewResearchReceipt(receipt)
+			rr.SaveSubstate(substate)
+
+			// TODO: implement PutSubstate
+			research.StaticSubstateDB.PutSubstate(block, tx, substate)
+		}
+
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}

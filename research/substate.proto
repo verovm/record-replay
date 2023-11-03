@@ -3,7 +3,7 @@ package research;
 
 option go_package = "../research";
 
-message SubstatePB {
+message Substate {
 
     message Account {
         uint64 nonce = 1;
@@ -15,11 +15,14 @@ message SubstatePB {
         }
         repeated StorageEntry storage = 3;
 
-        bytes code = 4;
+        oneof contract {
+            bytes code = 4;
+            bytes code_hash = 5;
+        }
     }
     message AllocEntry {
         bytes address = 1;
-        Account account = 2;
+        optional Account account = 2;
     }
     repeated AllocEntry input_alloc = 1;
     repeated AllocEntry output_alloc = 2;
@@ -54,7 +57,7 @@ message SubstatePB {
             bytes address = 1;
             repeated bytes storage_keys = 2;
         }
-        AccessListEntry access_list = 10;
+        repeated AccessListEntry access_list = 10;
 
         optional bytes gas_fee_cap = 11;
         optional bytes gas_tip_cap = 12;

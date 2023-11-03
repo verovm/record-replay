@@ -66,6 +66,8 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		BaseFee:     baseFee,
 		GasLimit:    header.GasLimit,
 		Random:      random,
+		// record-replay: ResearchBlockHashes
+		ResearchBlockHashes: make(map[uint64]common.Hash),
 	}
 }
 

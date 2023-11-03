@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/research"
 )
 
 // ExecutionResult includes all output after executing given evm
@@ -424,4 +425,62 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 // gasUsed returns the amount of gas used up by the state transition.
 func (st *StateTransition) gasUsed() uint64 {
 	return st.initialGas - st.gasRemaining
+}
+
+// record-replay: (*Message).SaveSubstate
+func (m *Message) SaveSubstate(substate *research.Substate) {
+	substate.TxMessage = &research.Substate_TxMessage{
+		Nonce:    m.Nonce,
+		GasPrice: m.GasPrice.Bytes(),
+		Gas:      m.GasLimit,
+		From:     m.From.Bytes(),
+		Value:    m.Value.Bytes(),
+
+		// Data may be converted Data to InitCodeHash in SubstateDB PutSubstate
+		Input: &research.Substate_TxMessage_Data{Data: m.Data},
+
+		GasFeeCap: m.GasFeeCap.Bytes(),
+		GasTipCap: m.GasTipCap.Bytes(),
+	}
+	if m.To != nil {
+		substate.TxMessage.To = m.To.Bytes()
+	}
+	if len(m.AccessList) > 0 {
+		for _, tuple := range m.AccessList {
+			entry := &research.Substate_TxMessage_AccessListEntry{}
+			entry.Address = tuple.Address.Bytes()
+			for _, key := range tuple.StorageKeys {
+				entry.StorageKeys = append(entry.StorageKeys, key.Bytes())
+			}
+			substate.TxMessage.AccessList = append(substate.TxMessage.AccessList, entry)
+		}
+	}
+}
+
+// record-replay: (*Message).LoadSubstate
+func (m *Message) LoadSubstate(substate *research.Substate) {
+	t := substate.TxMessage
+	m.Nonce = t.Nonce
+	m.GasPrice = new(big.Int).SetBytes(t.GasPrice)
+	m.GasLimit = t.Gas
+	m.From = common.BytesToAddress(t.From)
+	if len(t.To) == 0 {
+		m.To = nil
+	} else {
+		to := common.BytesToAddress(t.To)
+		m.To = &to
+	}
+	m.Value = new(big.Int).SetBytes(t.Value)
+	m.Data = t.GetData()
+	for _, entry := range t.AccessList {
+		tuple := types.AccessTuple{
+			Address: common.BytesToAddress(entry.Address),
+		}
+		for _, key := range entry.StorageKeys {
+			tuple.StorageKeys = append(tuple.StorageKeys, common.BytesToHash(key))
+		}
+		m.AccessList = append(m.AccessList, tuple)
+	}
+	m.GasFeeCap = new(big.Int).SetBytes(t.GasFeeCap)
+	m.GasTipCap = new(big.Int).SetBytes(t.GasTipCap)
 }
