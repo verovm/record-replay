@@ -102,7 +102,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 			// reset blockContext.ResearchBlockHashes manually
 			blockContext.SaveSubstate(substate)
-			blockContext.ResearchBlockHashes = make(map[uint64]common.Hash)
+			blockContext.ResearchBlockHashes = nil
 
 			// nothing to reset
 			msg.SaveSubstate(substate)

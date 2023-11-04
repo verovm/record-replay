@@ -437,6 +437,9 @@ func opBlockhash(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) (
 
 	// record-replay: convert vm.StateDB to state.StateDB and save block hash
 	defer func() {
+		if interpreter.evm.Context.ResearchBlockHashes == nil {
+			interpreter.evm.Context.ResearchBlockHashes = make(map[uint64]common.Hash)
+		}
 		interpreter.evm.Context.ResearchBlockHashes[num64] = common.BytesToHash(num.Bytes())
 	}()
 
