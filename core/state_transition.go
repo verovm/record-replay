@@ -429,58 +429,69 @@ func (st *StateTransition) gasUsed() uint64 {
 
 // record-replay: (*Message).SaveSubstate
 func (m *Message) SaveSubstate(substate *research.Substate) {
-	substate.TxMessage = &research.Substate_TxMessage{
-		Nonce:    m.Nonce,
-		GasPrice: m.GasPrice.Bytes(),
-		Gas:      m.GasLimit,
-		From:     m.From.Bytes(),
-		Value:    m.Value.Bytes(),
+	t := &research.Substate_TxMessage{}
 
-		// Data may be converted Data to InitCodeHash in SubstateDB PutSubstate
-		Input: &research.Substate_TxMessage_Data{Data: m.Data},
+	t.Nonce = research.NewUint64(m.Nonce)
 
-		GasFeeCap: m.GasFeeCap.Bytes(),
-		GasTipCap: m.GasTipCap.Bytes(),
-	}
-	if m.To != nil {
-		substate.TxMessage.To = m.To.Bytes()
-	}
+	t.GasPrice = research.BigIntToBytes(m.GasPrice)
+
+	t.Gas = research.NewUint64(m.GasLimit)
+
+	t.From = research.AddressToBytes(&m.From)
+
+	t.To = research.AddressToBytes(m.To)
+
+	t.Value = research.BigIntToBytes(m.Value)
+
+	t.Input = &research.Substate_TxMessage_Data{Data: m.Data}
+
 	if len(m.AccessList) > 0 {
 		for _, tuple := range m.AccessList {
 			entry := &research.Substate_TxMessage_AccessListEntry{}
-			entry.Address = tuple.Address.Bytes()
+			entry.Address = research.AddressToBytes(&tuple.Address)
 			for _, key := range tuple.StorageKeys {
-				entry.StorageKeys = append(entry.StorageKeys, key.Bytes())
+				entry.StorageKeys = append(entry.StorageKeys, research.HashToBytes(&key))
 			}
-			substate.TxMessage.AccessList = append(substate.TxMessage.AccessList, entry)
+			t.AccessList = append(t.AccessList, entry)
 		}
 	}
+
+	t.GasFeeCap = research.BigIntToBytes(m.GasFeeCap)
+
+	t.GasTipCap = research.BigIntToBytes(m.GasTipCap)
+
+	substate.TxMessage = t
 }
 
 // record-replay: (*Message).LoadSubstate
 func (m *Message) LoadSubstate(substate *research.Substate) {
 	t := substate.TxMessage
-	m.Nonce = t.Nonce
-	m.GasPrice = new(big.Int).SetBytes(t.GasPrice)
-	m.GasLimit = t.Gas
-	m.From = common.BytesToAddress(t.From)
-	if len(t.To) == 0 {
-		m.To = nil
-	} else {
-		to := common.BytesToAddress(t.To)
-		m.To = &to
-	}
-	m.Value = new(big.Int).SetBytes(t.Value)
+
+	m.Nonce = *t.Nonce
+
+	m.GasPrice = research.BytesToBigInt(t.GasPrice)
+
+	m.GasLimit = *t.Gas
+
+	m.From = *research.BytesToAddress(t.From)
+
+	m.To = research.BytesToAddress(t.To)
+
+	m.Value = research.BytesToBigInt(t.Value)
+
 	m.Data = t.GetData()
+
 	for _, entry := range t.AccessList {
 		tuple := types.AccessTuple{
-			Address: common.BytesToAddress(entry.Address),
+			Address: *research.BytesToAddress(entry.Address),
 		}
 		for _, key := range entry.StorageKeys {
-			tuple.StorageKeys = append(tuple.StorageKeys, common.BytesToHash(key))
+			tuple.StorageKeys = append(tuple.StorageKeys, *research.BytesToHash(key))
 		}
 		m.AccessList = append(m.AccessList, tuple)
 	}
-	m.GasFeeCap = new(big.Int).SetBytes(t.GasFeeCap)
-	m.GasTipCap = new(big.Int).SetBytes(t.GasTipCap)
+
+	m.GasFeeCap = research.BytesToBigInt(t.GasFeeCap)
+
+	m.GasTipCap = research.BytesToBigInt(t.GasTipCap)
 }

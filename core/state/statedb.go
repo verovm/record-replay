@@ -559,8 +559,8 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 		// record-replay: insert the account in StateDB.ResearchPreAlloc
 		if _, exist := s.ResearchPreAlloc[addr]; !exist {
 			s.ResearchPreAlloc[addr] = &research.Substate_Account{
-				Nonce:    obj.Nonce(),
-				Balance:  obj.Balance().Bytes(),
+				Nonce:    research.NewUint64(obj.Nonce()),
+				Balance:  research.BigIntToBytes(obj.Balance()),
 				Contract: &research.Substate_Account_Code{Code: obj.Code(s.db)},
 			}
 		}
@@ -882,9 +882,10 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 
 		obj := s.stateObjects[addr]
 		for key := range obj.ResearchTouched {
+			value := obj.GetCommittedState(s.db, key)
 			entry := research.Substate_Account_StorageEntry{
-				Key:   key.Bytes(),
-				Value: obj.GetCommittedState(s.db, key).Bytes(),
+				Key:   research.HashToBytes(&key),
+				Value: research.HashToBytes(&value),
 			}
 			sa.Storage = append(sa.Storage, &entry)
 		}
@@ -926,14 +927,15 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 
 			// record-replay: copy dirty account to StateDB.ResearchPostAlloc
 			sa := &research.Substate_Account{
-				Nonce:    obj.Nonce(),
-				Balance:  obj.Balance().Bytes(),
+				Nonce:    research.NewUint64(obj.Nonce()),
+				Balance:  research.BigIntToBytes(obj.Balance()),
 				Contract: &research.Substate_Account_Code{Code: obj.Code(s.db)},
 			}
 			for key := range obj.ResearchTouched {
+				value := obj.GetCommittedState(s.db, key)
 				entry := research.Substate_Account_StorageEntry{
-					Key:   key.Bytes(),
-					Value: obj.GetCommittedState(s.db, key).Bytes(),
+					Key:   research.HashToBytes(&key),
+					Value: research.HashToBytes(&value),
 				}
 				sa.Storage = append(sa.Storage, &entry)
 			}
@@ -1263,14 +1265,14 @@ func (sdb *StateDB) SaveSubstate(substate *research.Substate) {
 	substate.InputAlloc = make([]*research.Substate_AllocEntry, 0, len(sdb.ResearchPreAlloc))
 	for addr, account := range sdb.ResearchPreAlloc {
 		substate.InputAlloc = append(substate.InputAlloc, &research.Substate_AllocEntry{
-			Address: addr.Bytes(),
+			Address: research.AddressToBytes(&addr),
 			Account: account,
 		})
 	}
 	substate.OutputAlloc = make([]*research.Substate_AllocEntry, 0, len(sdb.ResearchPostAlloc))
 	for addr, account := range sdb.ResearchPostAlloc {
 		substate.OutputAlloc = append(substate.OutputAlloc, &research.Substate_AllocEntry{
-			Address: addr.Bytes(),
+			Address: research.AddressToBytes(&addr),
 			Account: account,
 		})
 	}
@@ -1279,14 +1281,14 @@ func (sdb *StateDB) SaveSubstate(substate *research.Substate) {
 // record-replay (*StateDB).LoadSubstate()
 func (sdb *StateDB) LoadSubstate(substate *research.Substate) {
 	for _, entry := range substate.InputAlloc {
-		addr := common.BytesToAddress(entry.Address)
+		addr := *research.BytesToAddress(entry.Address)
 		a := entry.Account
 		sdb.SetCode(addr, a.GetCode())
-		sdb.SetNonce(addr, a.Nonce)
-		sdb.SetBalance(addr, new(big.Int).SetBytes(a.Balance))
+		sdb.SetNonce(addr, *a.Nonce)
+		sdb.SetBalance(addr, research.BytesToBigInt(a.Balance))
 		// DON'T USE SetStorage because it makes REVERT and dirtyStorage unavailble
 		for _, pair := range a.Storage {
-			sdb.SetState(addr, common.BytesToHash(pair.Key), common.BytesToHash(pair.Value))
+			sdb.SetState(addr, *research.BytesToHash(pair.Key), *research.BytesToHash(pair.Value))
 		}
 	}
 	// Commit and re-open to start with a clean state.

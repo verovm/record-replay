@@ -529,36 +529,59 @@ func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
 
 // record-replay: (*BlockContext).SaveSubstate
 func (b *BlockContext) SaveSubstate(substate *research.Substate) {
-	substate.BlockEnv = &research.Substate_BlockEnv{
-		Coinbase:   b.Coinbase.Bytes(),
-		Difficulty: b.Difficulty.Bytes(),
-		GasLimit:   b.GasLimit,
-		Number:     b.BlockNumber.Uint64(),
-		Timestamp:  b.Time,
-		BaseFee:    b.BaseFee.Bytes(),
-	}
-	substate.BlockEnv.BlockHashes = make(map[uint64][]byte)
+	e := &research.Substate_BlockEnv{}
+
+	e.Coinbase = research.AddressToBytes(&b.Coinbase)
+
+	e.Difficulty = research.BigIntToBytes(b.Difficulty)
+
+	e.GasLimit = research.NewUint64(b.GasLimit)
+
+	e.Number = research.NewUint64(b.BlockNumber.Uint64())
+
+	e.Timestamp = research.NewUint64(b.Time)
+
 	if b.ResearchBlockHashes != nil {
 		for num64, blockHash := range b.ResearchBlockHashes {
-			substate.BlockEnv.BlockHashes[num64] = blockHash.Bytes()
+			entry := &research.Substate_BlockEnv_BlockHashEntry{
+				Key:   research.NewUint64(num64),
+				Value: research.HashToBytes(&blockHash),
+			}
+			substate.BlockEnv.BlockHashes = append(substate.BlockEnv.BlockHashes, entry)
 		}
 	}
+
+	e.BaseFee = research.BigIntToBytes(b.BaseFee)
+
+	e.Random = research.HashToBytes(b.Random)
+
+	substate.BlockEnv = e
 }
 
 // record-replay (*BlockContext).LoadSubstate
 func (b *BlockContext) LoadSubstate(substate *research.Substate) {
 	e := substate.BlockEnv
 
-	b.Coinbase = common.BytesToAddress(e.Coinbase)
-	b.Difficulty = new(big.Int).SetBytes(e.Difficulty)
-	b.GasLimit = e.GasLimit
-	b.BlockNumber = new(big.Int).SetUint64(e.Number)
-	b.Time = e.Timestamp
-	b.BaseFee = new(big.Int).SetBytes(e.BaseFee)
-	b.ResearchBlockHashes = make(map[uint64]common.Hash)
-	for num64, blockHash := range e.BlockHashes {
-		b.ResearchBlockHashes[num64] = common.BytesToHash(blockHash)
+	b.Coinbase = *research.BytesToAddress(e.Coinbase)
+
+	b.Difficulty = research.BytesToBigInt(e.Difficulty)
+
+	b.GasLimit = *e.GasLimit
+
+	b.BlockNumber = new(big.Int).SetUint64(*e.Number)
+
+	b.Time = *e.Timestamp
+
+	if e.BlockHashes != nil {
+		b.ResearchBlockHashes = make(map[uint64]common.Hash)
+		for _, entry := range e.BlockHashes {
+			b.ResearchBlockHashes[*entry.Key] = *research.BytesToHash(entry.Value)
+		}
 	}
+
+	b.BaseFee = research.BytesToBigInt(e.BaseFee)
+
+	b.Random = research.BytesToHash(e.Random)
 
 	// functions for substate replay
 	b.GetHash = func(num64 uint64) common.Hash {
