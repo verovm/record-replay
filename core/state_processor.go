@@ -19,7 +19,7 @@ package core
 import (
 	"fmt"
 	"math/big"
-	"strings"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -31,8 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -292,16 +291,17 @@ func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) erro
 
 	if !(eqAlloc && eqResult) {
 		fmt.Printf("block %v, tx %v, inconsistent output report BEGIN\n", block, tx)
-		jm := jsonpb.Marshaler{
+		jm := protojson.MarshalOptions{
 			Indent: "  ",
 		}
 		x := substate.HashedCopy()
-		xj, _ := jm.MarshalToString(x)
+		xj, _ := jm.Marshal(x)
+		os.WriteFile("record_substate.json", xj, 0644)
 		y := replaySubstate.HashedCopy()
-		yj, _ := jm.MarshalToString(y)
-		d := cmp.Diff(strings.Split(xj, "\n"), strings.Split(yj, "\n"))
-		fmt.Printf("+record -replay\n%s\n", d)
+		yj, _ := jm.Marshal(y)
+		os.WriteFile("replay_substate.json", yj, 0644)
 		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
+		fmt.Printf("block %v, tx %v, written to record_substate.json and replay_substate.json\n", block, tx)
 		return fmt.Errorf("not faithful replay - inconsistent output")
 	}
 
