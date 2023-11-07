@@ -23,12 +23,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -111,8 +114,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			rr := research.NewResearchReceipt(receipt)
 			rr.SaveSubstate(substate)
 
-			// TODO: implement PutSubstate
 			research.PutSubstate(block.NumberU64(), i, substate)
+
+			// TODO: check substate works for faithful replay
+			go func(block uint64, tx int, substate *research.Substate) {
+				err := checkFaithfulReplay(block, tx, substate)
+				if err != nil {
+					panic(err)
+				}
+			}(block.NumberU64(), i, substate)
 		}
 
 		receipts = append(receipts, receipt)
@@ -187,4 +197,106 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	blockContext := NewEVMBlockContext(header, bc, author)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
 	return applyTransaction(msg, config, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
+}
+
+// checkFaithfulReplay checks faithful transaction replay with the given substate
+func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) error {
+	var (
+		vmConfig    vm.Config
+		chainConfig *params.ChainConfig
+		getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error)
+	)
+
+	vmConfig = vm.Config{}
+
+	chainConfig = &params.ChainConfig{}
+	*chainConfig = *params.MainnetChainConfig
+	// disable DAOForkSupport, otherwise account states will be overwritten
+	chainConfig.DAOForkSupport = false
+
+	getTracerFn = func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error) {
+		return nil, nil
+	}
+
+	// Apply Message
+	db := rawdb.NewMemoryDatabase()
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	statedb.LoadSubstate(substate)
+
+	var (
+		gaspool   = new(GasPool)
+		blockHash = common.Hash{0x01}
+		txHash    = common.Hash{0x02}
+		txIndex   = tx
+	)
+
+	blockCtx := vm.BlockContext{
+		CanTransfer: CanTransfer,
+		Transfer:    Transfer,
+	}
+	blockCtx.LoadSubstate(substate)
+	gaspool.AddGas(blockCtx.GasLimit)
+
+	msg := &Message{}
+	msg.LoadSubstate(substate)
+
+	tracer, err := getTracerFn(txIndex, txHash)
+	if err != nil {
+		return err
+	}
+	vmConfig.Tracer = tracer
+
+	txCtx := vm.TxContext{
+		GasPrice: msg.GasPrice,
+		Origin:   msg.From,
+	}
+
+	statedb.SetTxContext(txHash, tx)
+
+	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
+	result, err := ApplyMessage(evm, msg, gaspool)
+	if err != nil {
+		return err
+	}
+
+	if chainConfig.IsByzantium(blockCtx.BlockNumber) {
+		statedb.Finalise(true)
+	} else {
+		statedb.IntermediateRoot(chainConfig.IsEIP158(blockCtx.BlockNumber))
+	}
+
+	rr := &research.ResearchReceipt{}
+	if result.Failed() {
+		rr.Status = types.ReceiptStatusFailed
+	} else {
+		rr.Status = types.ReceiptStatusSuccessful
+	}
+	rr.GasUsed = result.UsedGas
+
+	if msg.To == nil {
+		rr.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
+	}
+	rr.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
+	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
+
+	replaySubstate := &research.Substate{}
+	statedb.SaveSubstate(replaySubstate)
+	blockCtx.SaveSubstate(replaySubstate)
+	msg.SaveSubstate(replaySubstate)
+	rr.SaveSubstate(replaySubstate)
+
+	eqAlloc := proto.Equal(substate.OutputAlloc, replaySubstate.OutputAlloc)
+	eqResult := proto.Equal(substate.Result, replaySubstate.Result)
+
+	if !(eqAlloc && eqResult) {
+		fmt.Printf("block %v, tx %v, inconsistent output report BEGIN\n", block, tx)
+		x := substate.HashedCopy()
+		y := replaySubstate.HashedCopy()
+		d := cmp.Diff(x, y)
+		fmt.Printf("+record -replay\n%s\n", d)
+		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
+		return fmt.Errorf("not faithful replay - inconsistent output")
+	}
+
+	return nil
 }
