@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/research"
+	"github.com/ethereum/go-ethereum/cmd/substate-cli/rr03/research"
 	"github.com/syndtr/goleveldb/leveldb"
 	leveldb_opt "github.com/syndtr/goleveldb/leveldb/opt"
 	leveldb_util "github.com/syndtr/goleveldb/leveldb/util"
@@ -14,15 +14,15 @@ import (
 
 var CompactCommand = &cli.Command{
 	Action: compact,
-	Name:   "db-compact",
-	Usage:  "Compat LevelDB isntance",
+	Name:   "rr0.3-db-compact",
+	Usage:  "Compat rr0.3 goleveldb isntance",
 	Flags: []cli.Flag{
 		research.SubstateDirFlag,
 	},
 	Description: `
-The substate-cli db compact LevelDB instance - discarding deleted and
+The substate-cli db compact rr0.3 goleveldb instance - discarding deleted and
 overwritten versions`,
-	Category: "db",
+	Category: "rr0.3-db",
 }
 
 func compact(ctx *cli.Context) error {

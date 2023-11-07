@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/cmd/substate-cli/rr03/research"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/research"
 	"github.com/syndtr/goleveldb/leveldb"
 	leveldb_opt "github.com/syndtr/goleveldb/leveldb/opt"
 	cli "github.com/urfave/cli/v2"
@@ -16,8 +16,8 @@ import (
 
 var UpgradeCommand = &cli.Command{
 	Action: upgrade,
-	Name:   "db-upgrade",
-	Usage:  "upgrade old DB layout (stage1-substate/) to new unified DB layout (substate.ethereum)",
+	Name:   "rr-0.3-db-upgrade",
+	Usage:  "upgrade old rr0.1 DB layout (stage1-substate/) to new rr0.3 DB layout (substate.ethereum)",
 	Flags: []cli.Flag{
 		&cli.PathFlag{
 			Name:     "old-path",
@@ -33,17 +33,17 @@ var UpgradeCommand = &cli.Command{
 	Description: `
 The substate db upgrade command change old DB layout to new unified DB layout.
 
-<stage1-substate> is old DB layout:
+<stage1-substate> is old rr0.1 DB layout:
 - stage1-substate/substate is a DB with ("block_tx" -> substateRLP) pairs
 - stage1-substate/code is a DB with (codeHash -> code) pairs
 
-<substate.ethereum> is new unified DB layout. First 2 bytes of a key in substate DB
+<substate.ethereum> is new rr0.3 DB layout. First 2 bytes of a key in substate DB
 represents different data types as follows:
 - 1s: substateRLP, a key is "1s"+N+T with transaction index T at block N.
 T and N are encoded in a big-endian 64-bit binary.
 - 1c: code, a key is "1c"+codeHash where codeHash is Keccak256 hash of the bytecode.
 `,
-	Category: "db",
+	Category: "rr0.3-db",
 }
 
 func upgrade(ctx *cli.Context) error {

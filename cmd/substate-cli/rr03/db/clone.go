@@ -3,15 +3,15 @@ package db
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/cmd/substate-cli/rr03/research"
 	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/research"
 	cli "github.com/urfave/cli/v2"
 )
 
 var CloneCommand = &cli.Command{
 	Action: clone,
-	Name:   "db-clone",
-	Usage:  "Create a clone DB of a given block segment",
+	Name:   "rr0.3-db-clone",
+	Usage:  "Create a clone of rr0.3 DB of a given block segment",
 	Flags: []cli.Flag{
 		research.WorkersFlag,
 		research.BlockSegmentFlag,
@@ -27,11 +27,11 @@ var CloneCommand = &cli.Command{
 		},
 	},
 	Description: `
-substate-cli db clone creates a clone DB of a given block segment.
+substate-cli db clone creates a clone of rr0.3 DB of a given block segment.
 This loads a complete substate from src-path, then save it to dst path.
 The dst-path will always store substates in the latest encoding.
 `,
-	Category: "db",
+	Category: "rr0.3-db",
 }
 
 func clone(ctx *cli.Context) error {
