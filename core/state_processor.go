@@ -30,7 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
-	"github.com/google/go-cmp/cmp"
+	"github.com/gogo/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -290,10 +290,14 @@ func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) erro
 
 	if !(eqAlloc && eqResult) {
 		fmt.Printf("block %v, tx %v, inconsistent output report BEGIN\n", block, tx)
+		jm := jsonpb.Marshaler{
+			Indent: "  ",
+		}
 		x := substate.HashedCopy()
+		xj, _ := jm.MarshalToString(x)
 		y := replaySubstate.HashedCopy()
-		d := cmp.Diff(x, y)
-		fmt.Printf("+record -replay\n%s\n", d)
+		yj, _ := jm.MarshalToString(y)
+		fmt.Printf("%s\n%s\n", xj, yj)
 		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
 		return fmt.Errorf("not faithful replay - inconsistent output")
 	}
