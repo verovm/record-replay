@@ -549,13 +549,12 @@ func (b *BlockContext) SaveSubstate(substate *research.Substate) {
 				Key:   proto.Uint64(num64),
 				Value: research.HashToBytes(&blockHash),
 			}
-			substate.BlockEnv.BlockHashes = append(substate.BlockEnv.BlockHashes, entry)
+			e.BlockHashes = append(e.BlockHashes, entry)
 		}
+		sort.Slice(e.BlockHashes, func(i, j int) bool {
+			return *e.BlockHashes[i].Key < *e.BlockHashes[j].Key
+		})
 	}
-	sort.Slice(substate.BlockEnv.BlockHashes, func(i, j int) bool {
-		x := substate.BlockEnv.BlockHashes
-		return *x[i].Key < *x[j].Key
-	})
 
 	e.BaseFee = research.BigIntToBytes(b.BaseFee)
 
