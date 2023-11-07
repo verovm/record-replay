@@ -112,7 +112,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			rr.SaveSubstate(substate)
 
 			// TODO: implement PutSubstate
-			research.StaticSubstateDB.PutSubstate(block, tx, substate)
+			research.PutSubstate(block.NumberU64(), i, substate)
 		}
 
 		receipts = append(receipts, receipt)

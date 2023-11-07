@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
 	"github.com/holiman/uint256"
+	"google.golang.org/protobuf/proto"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -535,16 +536,16 @@ func (b *BlockContext) SaveSubstate(substate *research.Substate) {
 
 	e.Difficulty = research.BigIntToBytes(b.Difficulty)
 
-	e.GasLimit = research.NewUint64(b.GasLimit)
+	e.GasLimit = proto.Uint64(b.GasLimit)
 
-	e.Number = research.NewUint64(b.BlockNumber.Uint64())
+	e.Number = proto.Uint64(b.BlockNumber.Uint64())
 
-	e.Timestamp = research.NewUint64(b.Time)
+	e.Timestamp = proto.Uint64(b.Time)
 
 	if b.ResearchBlockHashes != nil {
 		for num64, blockHash := range b.ResearchBlockHashes {
 			entry := &research.Substate_BlockEnv_BlockHashEntry{
-				Key:   research.NewUint64(num64),
+				Key:   proto.Uint64(num64),
 				Value: research.HashToBytes(&blockHash),
 			}
 			substate.BlockEnv.BlockHashes = append(substate.BlockEnv.BlockHashes, entry)

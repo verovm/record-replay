@@ -8,16 +8,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var (
-	SubstateDirFlag = &cli.PathFlag{
-		Name:  "substatedir",
-		Usage: "Data directory for substate recorder/replayer",
-		Value: "substate.ethereum",
-	}
-	substateDir      = SubstateDirFlag.Value
-	staticSubstateDB *SubstateDB
-)
-
 func OpenSubstateDB() {
 	fmt.Println("record-replay: OpenSubstateDB")
 	backend, err := rawdb.NewLevelDBDatabase(substateDir, 1024, 100, "substatedir", false)

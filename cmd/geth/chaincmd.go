@@ -169,7 +169,6 @@ It's deprecated, please use "geth db export" instead.
 This command dumps out the state for a given block (or latest, if none provided).
 `,
 	}
-	// record-replay: TODO: geth record command
 )
 
 // initGenesis will initialise the given JSON format genesis file and writes it as
@@ -251,12 +250,12 @@ func dumpGenesis(ctx *cli.Context) error {
 	return nil
 }
 
-// record-replay: TODO: SubstateDB
-var RecordSubstateDB research.SubstateDB = nil
-
 func importChain(ctx *cli.Context) error {
 
-	// record-replay: TODO: open substate db
+	// record-replay: importChain OpenSubstateDB
+	research.SetSubstateFlags(ctx)
+	research.OpenSubstateDB()
+	defer research.CloseSubstateDB()
 
 	if ctx.Args().Len() < 1 {
 		utils.Fatalf("This command requires an argument.")
@@ -271,9 +270,6 @@ func importChain(ctx *cli.Context) error {
 
 	chain, db := utils.MakeChain(ctx, stack, false)
 	defer db.Close()
-
-	// record-replay: TODO: add SubstateDB to core.BlockChain
-	chain.ResearchSubstateDB = RecordSubstateDB
 
 	// Start periodically gathering memory profiles
 	var peakMemAlloc, peakMemSys uint64
@@ -504,13 +500,4 @@ func dump(ctx *cli.Context) error {
 func hashish(x string) bool {
 	_, err := strconv.Atoi(x)
 	return err != nil
-}
-
-// record-replay: recordChain function
-func recordChain(ctx *cli.Context) {
-	// Set SubstateDB non-nil
-	research.OpenSubstateDB(ctx)
-	defer research.CloseSubstateDB()
-
-	importChain(ctx)
 }

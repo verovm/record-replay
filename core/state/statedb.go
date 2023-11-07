@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"google.golang.org/protobuf/proto"
 
 	// record-replay: import research
 	"github.com/ethereum/go-ethereum/research"
@@ -559,7 +560,7 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 		// record-replay: insert the account in StateDB.ResearchPreAlloc
 		if _, exist := s.ResearchPreAlloc[addr]; !exist {
 			s.ResearchPreAlloc[addr] = &research.Substate_Account{
-				Nonce:    research.NewUint64(obj.Nonce()),
+				Nonce:    proto.Uint64(obj.Nonce()),
 				Balance:  research.BigIntToBytes(obj.Balance()),
 				Contract: &research.Substate_Account_Code{Code: obj.Code(s.db)},
 			}
@@ -927,7 +928,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 
 			// record-replay: copy dirty account to StateDB.ResearchPostAlloc
 			sa := &research.Substate_Account{
-				Nonce:    research.NewUint64(obj.Nonce()),
+				Nonce:    proto.Uint64(obj.Nonce()),
 				Balance:  research.BigIntToBytes(obj.Balance()),
 				Contract: &research.Substate_Account_Code{Code: obj.Code(s.db)},
 			}

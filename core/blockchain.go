@@ -48,9 +48,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
-
-	// record-replay: import research
-	"github.com/ethereum/go-ethereum/research"
 )
 
 var (
@@ -227,9 +224,6 @@ type BlockChain struct {
 	processor  Processor // Block transaction processor interface
 	forker     *ForkChoice
 	vmConfig   vm.Config
-
-	// record-replay: SubstateDB to record
-	ResearchSubstateDB research.SubstateDB
 }
 
 // NewBlockChain returns a fully initialised block chain using information

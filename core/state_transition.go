@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
+	"google.golang.org/protobuf/proto"
 )
 
 // ExecutionResult includes all output after executing given evm
@@ -431,11 +432,11 @@ func (st *StateTransition) gasUsed() uint64 {
 func (m *Message) SaveSubstate(substate *research.Substate) {
 	t := &research.Substate_TxMessage{}
 
-	t.Nonce = research.NewUint64(m.Nonce)
+	t.Nonce = proto.Uint64(m.Nonce)
 
 	t.GasPrice = research.BigIntToBytes(m.GasPrice)
 
-	t.Gas = research.NewUint64(m.GasLimit)
+	t.Gas = proto.Uint64(m.GasLimit)
 
 	t.From = research.AddressToBytes(&m.From)
 

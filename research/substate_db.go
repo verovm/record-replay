@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -153,39 +153,28 @@ func (db *SubstateDB) GetSubstate(block uint64, tx int) *Substate {
 		panic(fmt.Errorf("record-replay: error getting substate %v_%v from substate DB: %v,", block, tx, err))
 	}
 
-	// try decoding as substates from latest hard forks
-	substateRLP := SubstateRLP{}
-	err = rlp.DecodeBytes(value, &substateRLP)
-
+	hashedSubstate := &Substate{}
+	err = proto.Unmarshal(value, hashedSubstate)
 	if err != nil {
-		// try decoding as legacy substates between Berlin and London hard forks
-		berlinRLP := berlinSubstateRLP{}
-		err = rlp.DecodeBytes(value, &berlinRLP)
-		if err == nil {
-			substateRLP.setBerlinRLP(&berlinRLP)
-		}
+		panic(fmt.Errorf("record-replay: error decoding substate %v_%v: %v", block, tx, err))
 	}
 
-	if err != nil {
-		// try decoding as legacy substates before Berlin hard fork
-		legacyRLP := legacySubstateRLP{}
-		err = rlp.DecodeBytes(value, &legacyRLP)
-		if err != nil {
-			panic(fmt.Errorf("error decoding substateRLP %v_%v: %v", block, tx, err))
-		}
-		substateRLP.setLegacyRLP(&legacyRLP)
+	hashes := hashedSubstate.HashKeys()
+	hashMap := make(map[common.Hash][]byte)
+	for codeHash, _ := range hashes {
+		code := db.GetCode(codeHash)
+		hashMap[codeHash] = code
 	}
 
-	substate := Substate{}
-	substate.SetRLP(&substateRLP, db)
+	substate := hashedSubstate.UnhashedCopy(hashMap)
 
-	return &substate
+	return substate
 }
 
 func (db *SubstateDB) GetBlockSubstates(block uint64) map[int]*Substate {
 	var err error
 
-	txSubstate := make(map[int]*Substate)
+	txSubstateMap := make(map[int]*Substate)
 
 	prefix := Stage1SubstateBlockPrefix(block)
 
@@ -203,33 +192,22 @@ func (db *SubstateDB) GetBlockSubstates(block uint64) map[int]*Substate {
 			panic(fmt.Errorf("record-replay: GetBlockSubstates(%v) iterated substates from block %v", block, b))
 		}
 
-		// try decoding as substates from latest hard forks
-		substateRLP := SubstateRLP{}
-		err = rlp.DecodeBytes(value, &substateRLP)
-
+		hashedSubstate := &Substate{}
+		err = proto.Unmarshal(value, hashedSubstate)
 		if err != nil {
-			// try decoding as legacy substates between Berlin and London hard forks
-			berlinRLP := berlinSubstateRLP{}
-			err = rlp.DecodeBytes(value, &berlinRLP)
-			if err == nil {
-				substateRLP.setBerlinRLP(&berlinRLP)
-			}
+			panic(fmt.Errorf("error decoding substateRLP %v_%v: %v", block, tx, err))
 		}
 
-		if err != nil {
-			// try decoding as legacy substates before Berlin hard fork
-			legacyRLP := legacySubstateRLP{}
-			err = rlp.DecodeBytes(value, &legacyRLP)
-			if err != nil {
-				panic(fmt.Errorf("error decoding substateRLP %v_%v: %v", block, tx, err))
-			}
-			substateRLP.setLegacyRLP(&legacyRLP)
+		hashes := hashedSubstate.HashKeys()
+		hashMap := make(map[common.Hash][]byte)
+		for codeHash, _ := range hashes {
+			code := db.GetCode(codeHash)
+			hashMap[codeHash] = code
 		}
 
-		substate := Substate{}
-		substate.SetRLP(&substateRLP, db)
+		substate := hashedSubstate.UnhashedCopy(hashMap)
 
-		txSubstate[tx] = &substate
+		txSubstateMap[tx] = substate
 	}
 	iter.Release()
 	err = iter.Error()
@@ -237,36 +215,34 @@ func (db *SubstateDB) GetBlockSubstates(block uint64) map[int]*Substate {
 		panic(err)
 	}
 
-	return txSubstate
+	return txSubstateMap
 }
 
 func (db *SubstateDB) PutSubstate(block uint64, tx int, substate *Substate) {
 	var err error
 
+	// replace code to code hashes in accounts and messages
+	hashMap := substate.HashMap()
+	hashedSubstate := substate.HashedCopy()
+
 	// put deployed/creation code
-	for _, account := range substate.InputAlloc {
-		db.PutCode(account.Code)
-	}
-	for _, account := range substate.OutputAlloc {
-		db.PutCode(account.Code)
-	}
-	if msg := substate.Message; msg.To == nil {
-		db.PutCode(msg.Data)
+	for codeHash, code := range hashMap {
+		if codeHash != EmptyCodeHash {
+			db.PutCode(code)
+		}
 	}
 
+	// marshal hashed substate and put it to DB
 	key := Stage1SubstateKey(block, tx)
 	defer func() {
 		if err != nil {
 			panic(fmt.Errorf("record-replay: error putting substate %v_%v into substate DB: %v", block, tx, err))
 		}
 	}()
-
-	substateRLP := NewSubstateRLP(substate)
-	value, err := rlp.EncodeToBytes(substateRLP)
+	value, err := proto.Marshal(hashedSubstate)
 	if err != nil {
 		panic(err)
 	}
-
 	err = db.backend.Put(key, value)
 	if err != nil {
 		panic(err)
