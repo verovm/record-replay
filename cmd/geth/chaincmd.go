@@ -39,11 +39,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/research"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/urfave/cli/v2"
-
-	// record-replay: import research
-	"github.com/ethereum/go-ethereum/research"
 )
 
 var (

@@ -24,10 +24,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/holiman/uint256"
-
-	// record-replay: import research and proto
 	"github.com/ethereum/go-ethereum/research"
+	"github.com/holiman/uint256"
 	"google.golang.org/protobuf/proto"
 )
 
