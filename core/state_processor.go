@@ -296,10 +296,10 @@ func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) erro
 		}
 		x := substate.HashedCopy()
 		xj, _ := jm.Marshal(x)
-		os.WriteFile("record_substate.json", xj, 0644)
+		os.WriteFile(fmt.Sprintf("record_substate_%v_%v.json", block, tx), xj, 0644)
 		y := replaySubstate.HashedCopy()
 		yj, _ := jm.Marshal(y)
-		os.WriteFile("replay_substate.json", yj, 0644)
+		os.WriteFile(fmt.Sprintf("replay_substate_%v_%v.json", block, tx), yj, 0644)
 		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
 		fmt.Printf("block %v, tx %v, written to record_substate.json and replay_substate.json\n", block, tx)
 		return fmt.Errorf("not faithful replay - inconsistent output")
