@@ -19,6 +19,7 @@ package core
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -31,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -297,7 +299,8 @@ func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) erro
 		xj, _ := jm.MarshalToString(x)
 		y := replaySubstate.HashedCopy()
 		yj, _ := jm.MarshalToString(y)
-		fmt.Printf("%s\n%s\n", xj, yj)
+		d := cmp.Diff(strings.Split(xj, "\n"), strings.Split(yj, "\n"))
+		fmt.Printf("+record -replay\n%s\n", d)
 		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
 		return fmt.Errorf("not faithful replay - inconsistent output")
 	}
