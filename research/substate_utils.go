@@ -268,9 +268,12 @@ func (rr *ResearchReceipt) SaveSubstate(substate *Substate) {
 	re.Bloom = BloomToBytes(&rr.Bloom)
 
 	for _, log := range rr.Logs {
-		relog := &Substate_Result_Log{
-			Address: log.Address.Bytes(),
-			Data:    log.Data,
+		relog := &Substate_Result_Log{}
+		relog.Address = log.Address.Bytes()
+		relog.Data = log.Data
+		// Log.Data is required, so it cannot be nil
+		if relog.Data == nil {
+			relog.Data = []byte{}
 		}
 		for _, topic := range log.Topics {
 			relog.Topics = append(relog.Topics, HashToBytes(&topic))
