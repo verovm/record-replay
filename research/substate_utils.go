@@ -7,7 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/golang/protobuf/proto"
+
+	// record-replay: import proto
+	"google.golang.org/protobuf/proto"
 )
 
 // HashToBytes in research package strictly returns nil if hash is nil
@@ -77,118 +79,16 @@ func BytesToBloom(b []byte) *types.Bloom {
 	return &bloom
 }
 
-// (*Substate_Account).Copy returns a deep copy
-func (x *Substate_Account) Copy() *Substate_Account {
-	if x == nil {
-		return nil
-	}
-
-	pb, err := proto.Marshal(x)
-	if err != nil {
-		panic(err)
-	}
-
-	y := &Substate_Account{}
-	err = proto.Unmarshal(pb, y)
-	if err != nil {
-		panic(err)
-	}
-
-	return y
+func SortStorage(x []*Substate_Account_StorageEntry) {
+	sort.Slice(x, func(i, j int) bool {
+		return bytes.Compare(x[i].Key, x[j].Key) < 0
+	})
 }
 
-func EqualAccount(x, y *Substate_Account) bool {
-	if x == y {
-		return true
-	}
-
-	if (x == nil || y == nil) && x != y {
-		return false
-	}
-
-	eq := x.Nonce == y.Nonce &&
-		bytes.Equal(x.Balance, y.Balance) &&
-		bytes.Equal(x.GetCode(), y.GetCode()) &&
-		bytes.Equal(x.GetCodeHash(), y.GetCodeHash()) &&
-		len(x.Storage) == len(y.Storage)
-	if !eq {
-		return false
-	}
-
-	if len(x.Storage) == 0 {
-		return true
-	}
-
-	xs := append([]*Substate_Account_StorageEntry{}, x.Storage...)
-	sort.Slice(xs, func(i, j int) bool {
-		return bytes.Compare(xs[i].Key, xs[j].Key) < 0
+func SortAlloc(x []*Substate_AllocEntry) {
+	sort.Slice(x, func(i, j int) bool {
+		return bytes.Compare(x[i].Address, x[j].Address) < 0
 	})
-
-	ys := append([]*Substate_Account_StorageEntry{}, y.Storage...)
-	sort.Slice(ys, func(i, j int) bool {
-		return bytes.Compare(ys[i].Key, ys[j].Key) < 0
-	})
-
-	for i, xp := range xs {
-		yp := ys[i]
-		eq := bytes.Equal(xp.Key, yp.Key) && bytes.Equal(xp.Value, yp.Value)
-		if !eq {
-			return false
-		}
-	}
-
-	return true
-}
-
-// EqualAlloc returns false when either x or y is nil and the other is 0-length slice
-func EqualAlloc(x, y []*Substate_AllocEntry) bool {
-	if x == nil && y == nil {
-		return true
-	}
-
-	if (x == nil && y != nil) || (x != nil && y == nil) || len(x) != len(y) {
-		return false
-	}
-
-	xalloc := append([]*Substate_AllocEntry{}, x...)
-	sort.Slice(xalloc, func(i, j int) bool {
-		return bytes.Compare(xalloc[i].Address, xalloc[j].Address) < 0
-	})
-
-	yalloc := append([]*Substate_AllocEntry{}, y...)
-	sort.Slice(yalloc, func(i, j int) bool {
-		return bytes.Compare(yalloc[i].Address, yalloc[j].Address) < 0
-	})
-
-	for i, xe := range xalloc {
-		ye := yalloc[i]
-		eq := bytes.Equal(xe.Address, ye.Address) && EqualAccount(xe.Account, ye.Account)
-		if !eq {
-			return false
-		}
-	}
-
-	return true
-}
-
-// (*Substate).Copy returns a deep copy of the substate
-func (x *Substate) Copy() *Substate {
-	if x == nil {
-		return nil
-	}
-
-	pb, err := proto.Marshal(x)
-	if err != nil {
-		panic(err)
-	}
-
-	y := &Substate{}
-	err = proto.Unmarshal(pb, y)
-	if err != nil {
-		panic(err)
-	}
-
-	return y
 }
 
 // (*Substate).Hashes returns codeHash -> code from unhashed substate
@@ -199,7 +99,7 @@ func (x *Substate) HashMap() map[common.Hash][]byte {
 
 	z := make(map[common.Hash][]byte)
 
-	for _, entry := range x.InputAlloc {
+	for _, entry := range x.InputAlloc.Alloc {
 		account := entry.Account
 		if code := account.GetCode(); code != nil {
 			codeHash := CodeHash(code)
@@ -207,7 +107,7 @@ func (x *Substate) HashMap() map[common.Hash][]byte {
 		}
 	}
 
-	for _, entry := range x.OutputAlloc {
+	for _, entry := range x.OutputAlloc.Alloc {
 		account := entry.Account
 		if code := account.GetCode(); code != nil {
 			codeHash := CodeHash(code)
@@ -233,14 +133,14 @@ func (x *Substate) HashKeys() map[common.Hash]struct{} {
 
 	z := make(map[common.Hash]struct{})
 
-	for _, entry := range x.InputAlloc {
+	for _, entry := range x.InputAlloc.Alloc {
 		account := entry.Account
 		if codeHash := BytesToHash(account.GetCodeHash()); codeHash != nil {
 			z[*codeHash] = struct{}{}
 		}
 	}
 
-	for _, entry := range x.OutputAlloc {
+	for _, entry := range x.OutputAlloc.Alloc {
 		account := entry.Account
 		if codeHash := BytesToHash(account.GetCodeHash()); codeHash != nil {
 			z[*codeHash] = struct{}{}
@@ -256,13 +156,13 @@ func (x *Substate) HashKeys() map[common.Hash]struct{} {
 
 // (*Substate).HashedCopy returns a copy of substate with code hashes in accounts and message.
 func (x *Substate) HashedCopy() *Substate {
-	y := x.Copy()
+	y := proto.Clone(x).(*Substate)
 
 	if y == nil {
 		return nil
 	}
 
-	for _, entry := range y.InputAlloc {
+	for _, entry := range y.InputAlloc.Alloc {
 		account := entry.Account
 		if code := account.GetCode(); code != nil {
 			codeHash := CodeHash(code)
@@ -272,7 +172,7 @@ func (x *Substate) HashedCopy() *Substate {
 		}
 	}
 
-	for _, entry := range y.OutputAlloc {
+	for _, entry := range y.OutputAlloc.Alloc {
 		account := entry.Account
 		if code := account.GetCode(); code != nil {
 			codeHash := CodeHash(code)
@@ -297,13 +197,13 @@ func (x *Substate) HashedCopy() *Substate {
 // (*Substate).UnhashedCopy returns a copy substate with code and init code.
 // z is codeHash -> code mappings e.g., return value of from x.HashMap() before hashed
 func (x *Substate) UnhashedCopy(z map[common.Hash][]byte) *Substate {
-	y := x.Copy()
+	y := proto.Clone(x).(*Substate)
 
 	if y == nil {
 		return nil
 	}
 
-	for _, entry := range y.InputAlloc {
+	for _, entry := range y.InputAlloc.Alloc {
 		account := entry.Account
 		if codeHash := BytesToHash(account.GetCodeHash()); codeHash != nil {
 			account.Contract = &Substate_Account_Code{
@@ -312,7 +212,7 @@ func (x *Substate) UnhashedCopy(z map[common.Hash][]byte) *Substate {
 		}
 	}
 
-	for _, entry := range y.OutputAlloc {
+	for _, entry := range y.OutputAlloc.Alloc {
 		account := entry.Account
 		if codeHash := BytesToHash(account.GetCodeHash()); codeHash != nil {
 			account.Contract = &Substate_Account_Code{

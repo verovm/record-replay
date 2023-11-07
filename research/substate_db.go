@@ -8,7 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/golang/protobuf/proto"
+
+	// record-replay: import proto
+	"google.golang.org/protobuf/proto"
 )
 
 const (

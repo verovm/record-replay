@@ -18,13 +18,16 @@ package vm
 
 import (
 	"math/big"
+	"sort"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/research"
 	"github.com/holiman/uint256"
+
+	// record-replay: import research and proto
+	"github.com/ethereum/go-ethereum/research"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -528,7 +531,7 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
 
-// record-replay: (*BlockContext).SaveSubstate
+// record-replay: (*BlockContext).SaveSubstate should sort block hashes map entries by block numbers
 func (b *BlockContext) SaveSubstate(substate *research.Substate) {
 	e := &research.Substate_BlockEnv{}
 
@@ -551,6 +554,10 @@ func (b *BlockContext) SaveSubstate(substate *research.Substate) {
 			substate.BlockEnv.BlockHashes = append(substate.BlockEnv.BlockHashes, entry)
 		}
 	}
+	sort.Slice(substate.BlockEnv.BlockHashes, func(i, j int) bool {
+		x := substate.BlockEnv.BlockHashes
+		return *x[i].Key < *x[j].Key
+	})
 
 	e.BaseFee = research.BigIntToBytes(b.BaseFee)
 

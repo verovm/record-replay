@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/research"
 	"github.com/ethereum/go-ethereum/tests"
 	cli "github.com/urfave/cli/v2"
+	"google.golang.org/protobuf/proto"
 )
 
 // record-replay: replay-fork command
@@ -109,72 +109,41 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 			ReplayForkStatChan <- stat
 		}
 	}()
-	inputAlloc := substate.InputAlloc
-	inputEnv := substate.Env
-	inputMessage := substate.Message
-
-	outputAlloc := substate.OutputAlloc
-	outputResult := substate.Result
-
 	var (
 		vmConfig    vm.Config
+		chainConfig *params.ChainConfig
 		getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error)
 	)
 
 	vmConfig = vm.Config{}
 
+	chainConfig = &params.ChainConfig{}
+	*chainConfig = *params.MainnetChainConfig
+	// disable DAOForkSupport, otherwise account states will be overwritten
+	chainConfig.DAOForkSupport = false
+
 	getTracerFn = func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error) {
 		return nil, nil
 	}
 
-	// getHash returns zero for block hash that does not exist
-	getHash := func(num uint64) common.Hash {
-		if inputEnv.BlockHashes == nil {
-			return common.Hash{}
-		}
-		h := inputEnv.BlockHashes[num]
-		return h
-	}
-
 	// Apply Message
 	var (
-		statedb   = MakeOffTheChainStateDB(inputAlloc)
+		statedb   = MakeOffTheChainStateDB(substate)
 		gaspool   = new(core.GasPool)
-		txHash    = common.Hash{0x01}
-		blockHash = common.Hash{0x02}
+		blockHash = common.Hash{0x01}
+		txHash    = common.Hash{0x02}
 		txIndex   = tx
 	)
 
-	gaspool.AddGas(inputEnv.GasLimit)
 	blockCtx := vm.BlockContext{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
-		Coinbase:    inputEnv.Coinbase,
-		BlockNumber: new(big.Int).SetUint64(inputEnv.Number),
-		Time:        inputEnv.Timestamp,
-		Difficulty:  inputEnv.Difficulty,
-		GasLimit:    inputEnv.GasLimit,
-		GetHash:     getHash,
 	}
-	// If currentBaseFee is defined, add it to the vmContext.
-	if inputEnv.BaseFee != nil {
-		blockCtx.BaseFee = new(big.Int).Set(inputEnv.BaseFee)
-	}
+	blockCtx.LoadSubstate(substate)
+	gaspool.AddGas(blockCtx.GasLimit)
 
-	msg := &core.Message{
-		To:         inputMessage.To,
-		From:       inputMessage.From,
-		Nonce:      inputMessage.Nonce,
-		Value:      inputMessage.Value,
-		GasLimit:   inputMessage.Gas,
-		GasPrice:   inputMessage.GasPrice,
-		GasFeeCap:  inputMessage.GasFeeCap,
-		GasTipCap:  inputMessage.GasTipCap,
-		Data:       inputMessage.Data,
-		AccessList: inputMessage.AccessList,
-
-		SkipAccountChecks: !inputMessage.CheckNonce,
-	}
+	msg := &core.Message{}
+	msg.LoadSubstate(substate)
 
 	tracer, err := getTracerFn(txIndex, txHash)
 	if err != nil {
@@ -187,7 +156,8 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		Origin:   msg.From,
 	}
 
-	chainConfig := ReplayForkChainConfig
+	// replay-fork hard fork configuration
+	chainConfig = ReplayForkChainConfig
 	if chainConfig.IsLondon(blockCtx.BlockNumber) && blockCtx.BaseFee == nil {
 		// If blockCtx.BaseFee is nil, assume blockCtx.BaseFee is zero
 		blockCtx.BaseFee = new(big.Int)
@@ -196,14 +166,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	statedb.SetTxContext(txHash, tx)
 
 	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
-	msgResult, err := core.ApplyMessage(evm, msg, gaspool)
-	if err != nil {
-		stat = &ReplayForkStat{
-			Count:  1,
-			ErrStr: strings.Split(err.Error(), ":")[0],
-		}
-		return nil
-	}
+	result, msgErr := core.ApplyMessage(evm, msg, gaspool)
 
 	if chainConfig.IsByzantium(blockCtx.BlockNumber) {
 		statedb.Finalise(true)
@@ -211,127 +174,160 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		statedb.IntermediateRoot(chainConfig.IsEIP158(blockCtx.BlockNumber))
 	}
 
-	evmResult := &research.SubstateResult{}
-	if msgResult.Failed() {
-		evmResult.Status = types.ReceiptStatusFailed
+	rr := &research.ResearchReceipt{}
+	if result.Failed() {
+		rr.Status = types.ReceiptStatusFailed
 	} else {
-		evmResult.Status = types.ReceiptStatusSuccessful
+		rr.Status = types.ReceiptStatusSuccessful
 	}
-	evmResult.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
-	evmResult.Bloom = types.BytesToBloom(types.LogsBloom(evmResult.Logs))
-	if to := msg.To; to == nil {
-		evmResult.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
+	rr.GasUsed = result.UsedGas
+
+	if msg.To == nil {
+		rr.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
 	}
-	evmResult.GasUsed = msgResult.UsedGas
+	rr.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
+	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
 
-	evmAlloc := statedb.ResearchPostAlloc
+	replaySubstate := &research.Substate{}
+	statedb.SaveSubstate(replaySubstate)
+	blockCtx.SaveSubstate(replaySubstate)
+	msg.SaveSubstate(replaySubstate)
+	rr.SaveSubstate(replaySubstate)
 
-	if r, a := outputResult.Equal(evmResult), outputAlloc.Equal(evmAlloc); !(r && a) {
-		if outputResult.Status == types.ReceiptStatusSuccessful &&
-			evmResult.Status == types.ReceiptStatusSuccessful {
-			// when both output and evm were successful, check alloc and gas usage
+	// TODO: compare substate and
+	eqAlloc := proto.Equal(substate.OutputAlloc, replaySubstate.OutputAlloc)
+	eqResult := proto.Equal(substate.Result, replaySubstate.Result)
 
-			// check account states
-			if len(outputAlloc) != len(evmAlloc) {
+	if eqAlloc && eqResult {
+		stat = &ReplayForkStat{
+			Count:  1,
+			ErrStr: fmt.Sprintf("%v", ErrReplayForkMisc),
+		}
+		return nil
+	}
+
+	outputAlloc := make(map[common.Address]*research.Substate_Account)
+	for _, entry := range substate.OutputAlloc.Alloc {
+		outputAlloc[*research.BytesToAddress(entry.Address)] = entry.Account
+	}
+	evmAlloc := make(map[common.Address]*research.Substate_Account)
+	for _, entry := range replaySubstate.OutputAlloc.Alloc {
+		evmAlloc[*research.BytesToAddress(entry.Address)] = entry.Account
+	}
+
+	outputResult := substate.Result
+	evmResult := replaySubstate.Result
+
+	if *outputResult.Status == types.ReceiptStatusSuccessful &&
+		*evmResult.Status == types.ReceiptStatusFailed {
+		// if output was successful but evm failed, return runtime error
+		stat = &ReplayForkStat{
+			Count:  1,
+			ErrStr: fmt.Sprintf("%v", msgErr),
+		}
+		return nil
+	}
+
+	if *outputResult.Status == types.ReceiptStatusSuccessful &&
+		*evmResult.Status == types.ReceiptStatusSuccessful {
+		// when both output and evm were successful, check alloc and gas usage
+
+		// check account states
+		if len(outputAlloc) != len(evmAlloc) {
+			stat = &ReplayForkStat{
+				Count:  1,
+				ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
+			}
+			return nil
+		}
+		for addr := range outputAlloc {
+			account1 := outputAlloc[addr]
+			account2 := evmAlloc[addr]
+			if account2 == nil {
 				stat = &ReplayForkStat{
 					Count:  1,
 					ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
 				}
 				return nil
 			}
-			for addr := range outputAlloc {
-				account1 := outputAlloc[addr]
-				account2 := evmAlloc[addr]
-				if account2 == nil {
-					stat = &ReplayForkStat{
-						Count:  1,
-						ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
-					}
-					return nil
-				}
 
-				// check nonce
-				if account1.Nonce != account2.Nonce {
-					stat = &ReplayForkStat{
-						Count:  1,
-						ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
-					}
-					return nil
-				}
-
-				// check code
-				if !bytes.Equal(account1.Code, account2.Code) {
-					stat = &ReplayForkStat{
-						Count:  1,
-						ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
-					}
-					return nil
-				}
-
-				// check storage
-				storage1 := account1.Storage
-				storage2 := account2.Storage
-				if len(storage1) != len(storage2) {
-					stat = &ReplayForkStat{
-						Count:  1,
-						ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
-					}
-					return nil
-				}
-				for k, v1 := range storage1 {
-					if v2, exist := storage2[k]; !exist || v1 != v2 {
-						stat = &ReplayForkStat{
-							Count:  1,
-							ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
-						}
-						return nil
-					}
-				}
-			}
-
-			// more gas
-			if evmResult.GasUsed > outputResult.GasUsed {
+			// check nonce
+			if account1.Nonce != account2.Nonce {
 				stat = &ReplayForkStat{
 					Count:  1,
-					ErrStr: fmt.Sprintf("%v", ErrReplayForkMoreGas),
+					ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
 				}
 				return nil
 			}
 
-			// less gas
-			if evmResult.GasUsed < outputResult.GasUsed {
+			// check code
+			if !bytes.Equal(account1.GetCode(), account2.GetCode()) {
 				stat = &ReplayForkStat{
 					Count:  1,
-					ErrStr: fmt.Sprintf("%v", ErrReplayForkLessGas),
+					ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
 				}
 				return nil
 			}
 
-			// misc: logs, ...
-			stat = &ReplayForkStat{
-				Count:  1,
-				ErrStr: fmt.Sprintf("%v", ErrReplayForkMisc),
+			// check storage
+			storage1 := make(map[common.Hash]common.Hash)
+			for _, entry := range account1.Storage {
+				storage1[*research.BytesToHash(entry.Key)] = *research.BytesToHash(entry.Value)
 			}
-			return nil
+			storage2 := make(map[common.Hash]common.Hash)
+			for _, entry := range account2.Storage {
+				storage2[*research.BytesToHash(entry.Key)] = *research.BytesToHash(entry.Value)
+			}
+			if len(storage1) != len(storage2) {
+				stat = &ReplayForkStat{
+					Count:  1,
+					ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
+				}
+				return nil
+			}
+			for k, v1 := range storage1 {
+				if v2, exist := storage2[k]; !exist || v1 != v2 {
+					stat = &ReplayForkStat{
+						Count:  1,
+						ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
+					}
+					return nil
+				}
+			}
+		}
 
-		} else if outputResult.Status == types.ReceiptStatusSuccessful &&
-			evmResult.Status == types.ReceiptStatusFailed {
-			// if output was successful but evm failed, return runtime error
+		// more gas
+		if *evmResult.GasUsed > *outputResult.GasUsed {
 			stat = &ReplayForkStat{
 				Count:  1,
-				ErrStr: fmt.Sprintf("%v", msgResult.Err),
-			}
-			return nil
-		} else {
-			// misc (logs, ...)
-			stat = &ReplayForkStat{
-				Count:  1,
-				ErrStr: fmt.Sprintf("%v", ErrReplayForkMisc),
+				ErrStr: fmt.Sprintf("%v", ErrReplayForkMoreGas),
 			}
 			return nil
 		}
+
+		// less gas
+		if *evmResult.GasUsed < *outputResult.GasUsed {
+			stat = &ReplayForkStat{
+				Count:  1,
+				ErrStr: fmt.Sprintf("%v", ErrReplayForkLessGas),
+			}
+			return nil
+		}
+
+		// misc: logs, ...
+		stat = &ReplayForkStat{
+			Count:  1,
+			ErrStr: fmt.Sprintf("%v", ErrReplayForkMisc),
+		}
+		return nil
+
 	}
 
+	// misc (logs, ...)
+	stat = &ReplayForkStat{
+		Count:  1,
+		ErrStr: fmt.Sprintf("%v", ErrReplayForkMisc),
+	}
 	return nil
 }
 

@@ -34,10 +34,10 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
-	"google.golang.org/protobuf/proto"
 
 	// record-replay: import research
 	"github.com/ethereum/go-ethereum/research"
+	"google.golang.org/protobuf/proto"
 )
 
 type revision struct {
@@ -794,10 +794,10 @@ func (s *StateDB) Copy() *StateDB {
 	state.ResearchPreAlloc = make(map[common.Address]*research.Substate_Account)
 	state.ResearchPostAlloc = make(map[common.Address]*research.Substate_Account)
 	for addr, account := range s.ResearchPreAlloc {
-		state.ResearchPreAlloc[addr] = account.Copy()
+		state.ResearchPreAlloc[addr] = proto.Clone(account).(*research.Substate_Account)
 	}
 	for addr, account := range s.ResearchPostAlloc {
-		state.ResearchPostAlloc[addr] = account.Copy()
+		state.ResearchPostAlloc[addr] = proto.Clone(account).(*research.Substate_Account)
 	}
 
 	// Do we need to copy the access list and transient storage?
@@ -890,7 +890,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			}
 			sa.Storage = append(sa.Storage, &entry)
 		}
-		s.ResearchPostAlloc[addr] = sa.Copy()
+		s.ResearchPostAlloc[addr] = proto.Clone(sa).(*research.Substate_Account)
 	}
 
 	addressesToPrefetch := make([][]byte, 0, len(s.journal.dirties))
@@ -940,7 +940,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 				}
 				sa.Storage = append(sa.Storage, &entry)
 			}
-			s.ResearchPostAlloc[addr] = sa.Copy()
+			s.ResearchPostAlloc[addr] = proto.Clone(sa).(*research.Substate_Account)
 
 			obj.finalise(true) // Prefetch slots in the background
 		}
@@ -1261,27 +1261,31 @@ func (s *StateDB) convertAccountSet(set map[common.Address]struct{}) map[common.
 	return ret
 }
 
-// record-replay: (*StateDB).SaveSubstate()
+// record-replay: (*StateDB).SaveSubstate() should sort storage and alloc map entries by their keys
 func (sdb *StateDB) SaveSubstate(substate *research.Substate) {
-	substate.InputAlloc = make([]*research.Substate_AllocEntry, 0, len(sdb.ResearchPreAlloc))
+	substate.InputAlloc = &research.Substate_Alloc{}
 	for addr, account := range sdb.ResearchPreAlloc {
-		substate.InputAlloc = append(substate.InputAlloc, &research.Substate_AllocEntry{
+		research.SortStorage(account.Storage)
+		substate.InputAlloc.Alloc = append(substate.InputAlloc.Alloc, &research.Substate_AllocEntry{
 			Address: research.AddressToBytes(&addr),
 			Account: account,
 		})
 	}
-	substate.OutputAlloc = make([]*research.Substate_AllocEntry, 0, len(sdb.ResearchPostAlloc))
+	research.SortAlloc(substate.InputAlloc.Alloc)
+	substate.OutputAlloc = &research.Substate_Alloc{}
 	for addr, account := range sdb.ResearchPostAlloc {
-		substate.OutputAlloc = append(substate.OutputAlloc, &research.Substate_AllocEntry{
+		research.SortStorage(account.Storage)
+		substate.OutputAlloc.Alloc = append(substate.OutputAlloc.Alloc, &research.Substate_AllocEntry{
 			Address: research.AddressToBytes(&addr),
 			Account: account,
 		})
 	}
+	research.SortAlloc(substate.OutputAlloc.Alloc)
 }
 
 // record-replay (*StateDB).LoadSubstate()
 func (sdb *StateDB) LoadSubstate(substate *research.Substate) {
-	for _, entry := range substate.InputAlloc {
+	for _, entry := range substate.InputAlloc.Alloc {
 		addr := *research.BytesToAddress(entry.Address)
 		a := entry.Account
 		sdb.SetCode(addr, a.GetCode())

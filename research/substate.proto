@@ -22,10 +22,13 @@ message Substate {
     }
     message AllocEntry {
         required bytes address = 1;
-        optional Account account = 2;
+        required Account account = 2;
     }
-    repeated AllocEntry input_alloc = 1;
-    repeated AllocEntry output_alloc = 2;
+    message Alloc {
+        repeated AllocEntry alloc = 1;
+    }
+    required Alloc input_alloc = 1;
+    required Alloc output_alloc = 2;
 
     message BlockEnv {
         required bytes coinbase = 1;

@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
+	"github.com/google/go-cmp/cmp"
 	cli "github.com/urfave/cli/v2"
+	"google.golang.org/protobuf/proto"
 )
 
 // record-replay: substate-cli replay command
@@ -109,24 +111,22 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 	rr.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
 	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
 
-	outSubstate := &research.Substate{}
-	statedb.SaveSubstate(outSubstate)
-	blockCtx.SaveSubstate(outSubstate)
-	msg.SaveSubstate(outSubstate)
-	rr.SaveSubstate(outSubstate)
+	replaySubstate := &research.Substate{}
+	statedb.SaveSubstate(replaySubstate)
+	blockCtx.SaveSubstate(replaySubstate)
+	msg.SaveSubstate(replaySubstate)
+	rr.SaveSubstate(replaySubstate)
 
 	// TODO: compare substate and
-	eqAlloc := research.EqualAlloc(substate.OutputAlloc, outSubstate.OutputAlloc)
-	eqResult := research.EqualResult(substate.Result, outSubstate.Result)
+	eqAlloc := proto.Equal(substate.OutputAlloc, replaySubstate.OutputAlloc)
+	eqResult := proto.Equal(substate.Result, replaySubstate.Result)
 
 	if !(eqAlloc && eqResult) {
 		fmt.Printf("block %v, tx %v, inconsistent output report BEGIN\n", block, tx)
-		if !eqAlloc {
-			// TODO: print alloc diff
-		}
-		if !eqResult {
-			// TODO: print result diff
-		}
+		x := substate.HashedCopy()
+		y := replaySubstate.HashedCopy()
+		d := cmp.Diff(x, y)
+		fmt.Printf("+record -replay\n%s\n", d)
 		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
 		return fmt.Errorf("not faithful replay - inconsistent output")
 	}

@@ -85,7 +85,7 @@ func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error
 
 		if !skipTx && pool.Config.SkipTransferTxs && to != nil {
 			// skip regular transactions (ETH transfer)
-			for _, entry := range substate.InputAlloc {
+			for _, entry := range substate.InputAlloc.Alloc {
 				addr := entry.Address
 				account := entry.Account
 				if bytes.Equal(addr, to) && len(account.GetCode()) == 0 {
@@ -97,7 +97,7 @@ func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error
 
 		if !skipTx && pool.Config.SkipCallTxs && to != nil {
 			// skip CALL trasnactions with contract bytecode
-			for _, entry := range substate.InputAlloc {
+			for _, entry := range substate.InputAlloc.Alloc {
 				addr := entry.Address
 				account := entry.Account
 				if bytes.Equal(addr, to) && len(account.GetCode()) > 0 {
