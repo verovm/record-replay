@@ -275,7 +275,7 @@ func (rr *ResearchReceipt) SaveSubstate(substate *Substate) {
 		for _, topic := range log.Topics {
 			relog.Topics = append(relog.Topics, HashToBytes(&topic))
 		}
-		substate.Result.Logs = append(substate.Result.Logs, relog)
+		re.Logs = append(re.Logs, relog)
 	}
 
 	re.ContractAddress = AddressToBytes(&rr.ContractAddress)
