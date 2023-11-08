@@ -142,6 +142,9 @@ type Message struct {
 	// account nonce in state. It also disables checking that the sender is an EOA.
 	// This field will be set to true for operations like RPC eth_call.
 	SkipAccountChecks bool
+
+	// record-replay: ResearchTxType
+	ResearchTxType uint8
 }
 
 // TransactionToMessage converts a transaction into a Message.
@@ -158,6 +161,10 @@ func TransactionToMessage(tx *types.Transaction, s types.Signer, baseFee *big.In
 		AccessList:        tx.AccessList(),
 		SkipAccountChecks: false,
 	}
+
+	// record-replay: store transaction type to ResearchTxType
+	msg.ResearchTxType = tx.Type()
+
 	// If baseFee provided, set gasPrice to effectiveGasPrice.
 	if baseFee != nil {
 		msg.GasPrice = cmath.BigMin(msg.GasPrice.Add(msg.GasTipCap, baseFee), msg.GasFeeCap)
@@ -446,7 +453,21 @@ func (m *Message) SaveSubstate(substate *research.Substate) {
 
 	t.Input = &research.Substate_TxMessage_Data{Data: m.Data}
 
-	if len(m.AccessList) > 0 {
+	switch x := m.ResearchTxType; x {
+	case types.LegacyTxType:
+		t.TxType = research.Substate_TxMessage_TXTYPE_LEGACY.Enum()
+	case types.AccessListTxType:
+		t.TxType = research.Substate_TxMessage_TXTYPE_ACCESSLIST.Enum()
+	case types.DynamicFeeTxType:
+		t.TxType = research.Substate_TxMessage_TXTYPE_DYNAMICFEE.Enum()
+	default:
+		panic(fmt.Errorf("tx type %v is not supported", x))
+	}
+
+	switch *t.TxType {
+	case research.Substate_TxMessage_TXTYPE_ACCESSLIST,
+		research.Substate_TxMessage_TXTYPE_DYNAMICFEE:
+		m.AccessList = make(types.AccessList, 0, len(m.AccessList))
 		for _, tuple := range m.AccessList {
 			entry := &research.Substate_TxMessage_AccessListEntry{}
 			entry.Address = research.AddressToBytes(&tuple.Address)
@@ -457,9 +478,11 @@ func (m *Message) SaveSubstate(substate *research.Substate) {
 		}
 	}
 
-	t.GasFeeCap = research.BigIntToBytesValue(m.GasFeeCap)
-
-	t.GasTipCap = research.BigIntToBytesValue(m.GasTipCap)
+	switch *t.TxType {
+	case research.Substate_TxMessage_TXTYPE_DYNAMICFEE:
+		t.GasFeeCap = research.BigIntToBytesValue(m.GasFeeCap)
+		t.GasTipCap = research.BigIntToBytesValue(m.GasTipCap)
+	}
 
 	substate.TxMessage = t
 }
@@ -482,17 +505,36 @@ func (m *Message) LoadSubstate(substate *research.Substate) {
 
 	m.Data = t.GetData()
 
-	for _, entry := range t.AccessList {
-		tuple := types.AccessTuple{
-			Address: *research.BytesToAddress(entry.Address),
-		}
-		for _, key := range entry.StorageKeys {
-			tuple.StorageKeys = append(tuple.StorageKeys, *research.BytesToHash(key))
-		}
-		m.AccessList = append(m.AccessList, tuple)
+	switch x := *t.TxType; x {
+	case research.Substate_TxMessage_TXTYPE_LEGACY:
+		m.ResearchTxType = types.LegacyTxType
+	case research.Substate_TxMessage_TXTYPE_ACCESSLIST:
+		m.ResearchTxType = types.AccessListTxType
+	case research.Substate_TxMessage_TXTYPE_DYNAMICFEE:
+		m.ResearchTxType = types.DynamicFeeTxType
+	default:
+		panic(fmt.Errorf("tx type %v is not supported", x))
 	}
 
-	m.GasFeeCap = research.BytesValueToBigInt(t.GasFeeCap)
+	switch m.ResearchTxType {
+	case types.AccessListTxType, types.DynamicFeeTxType:
+		for _, entry := range t.AccessList {
+			tuple := types.AccessTuple{
+				Address: *research.BytesToAddress(entry.Address),
+			}
+			for _, key := range entry.StorageKeys {
+				tuple.StorageKeys = append(tuple.StorageKeys, *research.BytesToHash(key))
+			}
+			m.AccessList = append(m.AccessList, tuple)
+		}
+	}
 
-	m.GasTipCap = research.BytesValueToBigInt(t.GasTipCap)
+	switch m.ResearchTxType {
+	case types.LegacyTxType, types.AccessListTxType:
+		m.GasFeeCap = m.GasPrice
+		m.GasTipCap = m.GasPrice
+	case types.DynamicFeeTxType:
+		m.GasFeeCap = research.BytesValueToBigInt(t.GasFeeCap)
+		m.GasTipCap = research.BytesValueToBigInt(t.GasTipCap)
+	}
 }

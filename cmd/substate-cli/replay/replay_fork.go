@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
 	"github.com/ethereum/go-ethereum/tests"
@@ -180,14 +179,9 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	} else {
 		rr.Status = types.ReceiptStatusSuccessful
 	}
-	rr.GasUsed = result.UsedGas
-
-	if msg.To == nil {
-		contractAddr := crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
-		rr.ContractAddress = &contractAddr
-	}
 	rr.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
 	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
+	rr.GasUsed = result.UsedGas
 
 	replaySubstate := &research.Substate{}
 	statedb.SaveSubstate(replaySubstate)

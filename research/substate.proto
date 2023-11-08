@@ -64,14 +64,23 @@ message Substate {
             bytes init_code_hash = 8;
         }
 
+        enum TxType {
+            TXTYPE_LEGACY = 0;
+            TXTYPE_ACCESSLIST = 1;
+            TXTYPE_DYNAMICFEE = 2;
+        }
+        required TxType tx_type = 9;
+
+        // AccessList for TXTYPE_ACCESSLIST, TXTYPE_DYNAMICFEE
         message AccessListEntry {
             required bytes address = 1;
             repeated bytes storage_keys = 2;
         }
-        repeated AccessListEntry access_list = 9;
+        repeated AccessListEntry access_list = 10;
 
-        optional google.protobuf.BytesValue gas_fee_cap = 10;
-        optional google.protobuf.BytesValue gas_tip_cap = 11;
+        // GasFeeCap, GasTipCap for TXTYPE_DYNAMICFEE
+        optional google.protobuf.BytesValue gas_fee_cap = 11;
+        optional google.protobuf.BytesValue gas_tip_cap = 12;
     }
     required TxMessage tx_message = 4;
 
