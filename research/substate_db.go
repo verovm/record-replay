@@ -195,7 +195,7 @@ func (db *SubstateDB) GetBlockSubstates(block uint64) map[int]*Substate {
 		hashedSubstate := &Substate{}
 		err = proto.Unmarshal(value, hashedSubstate)
 		if err != nil {
-			panic(fmt.Errorf("error decoding substateRLP %v_%v: %v", block, tx, err))
+			panic(fmt.Errorf("error decoding substate hashed substate %v_%v: %v", block, tx, err))
 		}
 
 		hashes := hashedSubstate.HashKeys()

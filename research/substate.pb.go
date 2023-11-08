@@ -487,8 +487,9 @@ type Substate_TxMessage struct {
 	Input      isSubstate_TxMessage_Input            `protobuf_oneof:"input"`
 	TxType     *Substate_TxMessage_TxType            `protobuf:"varint,9,req,name=tx_type,json=txType,enum=research.Substate_TxMessage_TxType" json:"tx_type,omitempty"`
 	AccessList []*Substate_TxMessage_AccessListEntry `protobuf:"bytes,10,rep,name=access_list,json=accessList" json:"access_list,omitempty"`
-	GasFeeCap  *wrapperspb.BytesValue                `protobuf:"bytes,11,opt,name=gas_fee_cap,json=gasFeeCap" json:"gas_fee_cap,omitempty"`
-	GasTipCap  *wrapperspb.BytesValue                `protobuf:"bytes,12,opt,name=gas_tip_cap,json=gasTipCap" json:"gas_tip_cap,omitempty"`
+	// GasFeeCap, GasTipCap for TXTYPE_DYNAMICFEE
+	GasFeeCap *wrapperspb.BytesValue `protobuf:"bytes,11,opt,name=gas_fee_cap,json=gasFeeCap" json:"gas_fee_cap,omitempty"`
+	GasTipCap *wrapperspb.BytesValue `protobuf:"bytes,12,opt,name=gas_tip_cap,json=gasTipCap" json:"gas_tip_cap,omitempty"`
 }
 
 func (x *Substate_TxMessage) Reset() {
@@ -811,6 +812,7 @@ func (x *Substate_BlockEnv_BlockHashEntry) GetValue() []byte {
 	return nil
 }
 
+// AccessList for TXTYPE_ACCESSLIST, TXTYPE_DYNAMICFEE
 type Substate_TxMessage_AccessListEntry struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
