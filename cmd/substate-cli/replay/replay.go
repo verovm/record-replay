@@ -2,15 +2,18 @@ package replay
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
-	"github.com/google/go-cmp/cmp"
 	cli "github.com/urfave/cli/v2"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -35,65 +38,47 @@ and check output consistency for faithful replaying.`,
 
 // replayTask replays a transaction substate
 func replayTask(block uint64, tx int, substate *research.Substate, taskPool *research.SubstateTaskPool) error {
-	var (
-		vmConfig    vm.Config
-		chainConfig *params.ChainConfig
-		getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error)
-	)
+	// InputAlloc
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	statedb.LoadSubstate(substate)
 
-	vmConfig = vm.Config{}
+	// BlockEnv
+	blockContext := vm.BlockContext{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+	}
+	blockContext.LoadSubstate(substate)
+	blockNumber := blockContext.BlockNumber
 
-	chainConfig = &params.ChainConfig{}
+	// TxMessage
+	txMessage := &core.Message{}
+	txMessage.LoadSubstate(substate)
+
+	chainConfig := &params.ChainConfig{}
 	*chainConfig = *params.MainnetChainConfig
 	// disable DAOForkSupport, otherwise account states will be overwritten
 	chainConfig.DAOForkSupport = false
 
-	getTracerFn = func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error) {
-		return nil, nil
-	}
+	vmConfig := vm.Config{}
 
-	// Apply Message
-	var (
-		statedb   = MakeOffTheChainStateDB(substate)
-		gaspool   = new(core.GasPool)
-		blockHash = common.Hash{0x01}
-		txHash    = common.Hash{0x02}
-		txIndex   = tx
-	)
+	evm := vm.NewEVM(blockContext, vm.TxContext{}, statedb, chainConfig, vmConfig)
 
-	blockCtx := vm.BlockContext{
-		CanTransfer: core.CanTransfer,
-		Transfer:    core.Transfer,
-	}
-	blockCtx.LoadSubstate(substate)
-	gaspool.AddGas(blockCtx.GasLimit)
+	statedb.SetTxContext(common.Hash{}, tx)
 
-	msg := &core.Message{}
-	msg.LoadSubstate(substate)
+	txContext := core.NewEVMTxContext(txMessage)
+	evm.Reset(txContext, statedb)
 
-	tracer, err := getTracerFn(txIndex, txHash)
-	if err != nil {
-		return err
-	}
-	vmConfig.Tracer = tracer
+	gaspool := new(core.GasPool).AddGas(blockContext.GasLimit)
 
-	txCtx := vm.TxContext{
-		GasPrice: msg.GasPrice,
-		Origin:   msg.From,
-	}
-
-	statedb.SetTxContext(txHash, tx)
-
-	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
-	result, err := core.ApplyMessage(evm, msg, gaspool)
+	result, err := core.ApplyMessage(evm, txMessage, gaspool)
 	if err != nil {
 		return err
 	}
 
-	if chainConfig.IsByzantium(blockCtx.BlockNumber) {
+	if chainConfig.IsByzantium(blockNumber) {
 		statedb.Finalise(true)
 	} else {
-		statedb.IntermediateRoot(chainConfig.IsEIP158(blockCtx.BlockNumber))
+		statedb.IntermediateRoot(chainConfig.IsEIP158(blockNumber))
 	}
 
 	rr := &research.ResearchReceipt{}
@@ -102,27 +87,40 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 	} else {
 		rr.Status = types.ReceiptStatusSuccessful
 	}
-	rr.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
+	rr.Logs = statedb.GetLogs(common.Hash{}, blockContext.BlockNumber.Uint64(), common.Hash{})
 	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
+
 	rr.GasUsed = result.UsedGas
 
 	replaySubstate := &research.Substate{}
 	statedb.SaveSubstate(replaySubstate)
-	blockCtx.SaveSubstate(replaySubstate)
-	msg.SaveSubstate(replaySubstate)
+	blockContext.SaveSubstate(replaySubstate)
+	txMessage.SaveSubstate(replaySubstate)
 	rr.SaveSubstate(replaySubstate)
 
-	// TODO: compare substate and
 	eqAlloc := proto.Equal(substate.OutputAlloc, replaySubstate.OutputAlloc)
 	eqResult := proto.Equal(substate.Result, replaySubstate.Result)
 
 	if !(eqAlloc && eqResult) {
-		fmt.Printf("block %v, tx %v, inconsistent output report BEGIN\n", block, tx)
-		x := substate.HashedCopy()
-		y := replaySubstate.HashedCopy()
-		d := cmp.Diff(x, y)
-		fmt.Printf("+record -replay\n%s\n", d)
-		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
+		fmt.Printf("block %v, tx %v, inconsistent output\n", block, tx)
+		jm := protojson.MarshalOptions{
+			Indent: "  ",
+		}
+
+		var b []byte
+
+		b, _ = jm.Marshal(substate)
+		os.WriteFile(fmt.Sprintf("record_substate_%v_%v.json", block, tx), b, 0644)
+		b, _ = jm.Marshal(substate.HashedCopy())
+		os.WriteFile(fmt.Sprintf("record_substate_%v_%v_hashed.json", block, tx), b, 0644)
+
+		b, _ = jm.Marshal(replaySubstate)
+		os.WriteFile(fmt.Sprintf("replay_substate_%v_%v.json", block, tx), b, 0644)
+		b, _ = jm.Marshal(replaySubstate.HashedCopy())
+		os.WriteFile(fmt.Sprintf("replay_substate_%v_%v_hashed.json", block, tx), b, 0644)
+
+		fmt.Printf("Saved record/replay_substate_*.json files (bytes in base64)\n")
+
 		return fmt.Errorf("not faithful replay - inconsistent output")
 	}
 

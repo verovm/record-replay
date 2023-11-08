@@ -10,6 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
@@ -102,75 +104,57 @@ var (
 )
 
 func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool *research.SubstateTaskPool) error {
+	// replay-fork
 	var stat *ReplayForkStat
 	defer func() {
 		if stat != nil {
 			ReplayForkStatChan <- stat
 		}
 	}()
-	var (
-		vmConfig    vm.Config
-		chainConfig *params.ChainConfig
-		getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error)
-	)
 
-	vmConfig = vm.Config{}
+	// InputAlloc
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	statedb.LoadSubstate(substate)
 
-	chainConfig = &params.ChainConfig{}
-	*chainConfig = *params.MainnetChainConfig
-	// disable DAOForkSupport, otherwise account states will be overwritten
-	chainConfig.DAOForkSupport = false
-
-	getTracerFn = func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error) {
-		return nil, nil
-	}
-
-	// Apply Message
-	var (
-		statedb   = MakeOffTheChainStateDB(substate)
-		gaspool   = new(core.GasPool)
-		blockHash = common.Hash{0x01}
-		txHash    = common.Hash{0x02}
-		txIndex   = tx
-	)
-
-	blockCtx := vm.BlockContext{
+	// BlockEnv
+	blockContext := vm.BlockContext{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
 	}
-	blockCtx.LoadSubstate(substate)
-	gaspool.AddGas(blockCtx.GasLimit)
+	blockContext.LoadSubstate(substate)
+	blockNumber := blockContext.BlockNumber
 
-	msg := &core.Message{}
-	msg.LoadSubstate(substate)
+	// TxMessage
+	txMessage := &core.Message{}
+	txMessage.LoadSubstate(substate)
 
-	tracer, err := getTracerFn(txIndex, txHash)
+	// replay-fork hard fork configuration
+	chainConfig := ReplayForkChainConfig
+	if chainConfig.IsLondon(blockNumber) && blockContext.BaseFee == nil {
+		// If blockCtx.BaseFee is nil, assume blockCtx.BaseFee is zero
+		blockContext.BaseFee = new(big.Int)
+	}
+
+	vmConfig := vm.Config{}
+
+	evm := vm.NewEVM(blockContext, vm.TxContext{}, statedb, chainConfig, vmConfig)
+
+	statedb.SetTxContext(common.Hash{}, tx)
+
+	txContext := core.NewEVMTxContext(txMessage)
+	evm.Reset(txContext, statedb)
+
+	gaspool := new(core.GasPool).AddGas(blockContext.GasLimit)
+
+	result, err := core.ApplyMessage(evm, txMessage, gaspool)
 	if err != nil {
 		return err
 	}
-	vmConfig.Tracer = tracer
 
-	txCtx := vm.TxContext{
-		GasPrice: msg.GasPrice,
-		Origin:   msg.From,
-	}
-
-	// replay-fork hard fork configuration
-	chainConfig = ReplayForkChainConfig
-	if chainConfig.IsLondon(blockCtx.BlockNumber) && blockCtx.BaseFee == nil {
-		// If blockCtx.BaseFee is nil, assume blockCtx.BaseFee is zero
-		blockCtx.BaseFee = new(big.Int)
-	}
-
-	statedb.SetTxContext(txHash, tx)
-
-	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
-	result, msgErr := core.ApplyMessage(evm, msg, gaspool)
-
-	if chainConfig.IsByzantium(blockCtx.BlockNumber) {
+	if chainConfig.IsByzantium(blockNumber) {
 		statedb.Finalise(true)
 	} else {
-		statedb.IntermediateRoot(chainConfig.IsEIP158(blockCtx.BlockNumber))
+		statedb.IntermediateRoot(chainConfig.IsEIP158(blockNumber))
 	}
 
 	rr := &research.ResearchReceipt{}
@@ -179,17 +163,18 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	} else {
 		rr.Status = types.ReceiptStatusSuccessful
 	}
-	rr.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
+	rr.Logs = statedb.GetLogs(common.Hash{}, blockContext.BlockNumber.Uint64(), common.Hash{})
 	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
 	rr.GasUsed = result.UsedGas
 
+	msgErr := result.Err
+
 	replaySubstate := &research.Substate{}
 	statedb.SaveSubstate(replaySubstate)
-	blockCtx.SaveSubstate(replaySubstate)
-	msg.SaveSubstate(replaySubstate)
+	blockContext.SaveSubstate(replaySubstate)
+	txMessage.SaveSubstate(replaySubstate)
 	rr.SaveSubstate(replaySubstate)
 
-	// TODO: compare substate and
 	eqAlloc := proto.Equal(substate.OutputAlloc, replaySubstate.OutputAlloc)
 	eqResult := proto.Equal(substate.Result, replaySubstate.Result)
 
