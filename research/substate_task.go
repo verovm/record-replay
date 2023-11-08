@@ -88,7 +88,7 @@ func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error
 			for _, entry := range substate.InputAlloc.Alloc {
 				addr := entry.Address
 				account := entry.Account
-				if bytes.Equal(addr, to) && len(account.GetCode()) == 0 {
+				if bytes.Equal(addr, to.Value) && len(account.GetCode()) == 0 {
 					skipTx = true
 					break
 				}
@@ -100,7 +100,7 @@ func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error
 			for _, entry := range substate.InputAlloc.Alloc {
 				addr := entry.Address
 				account := entry.Account
-				if bytes.Equal(addr, to) && len(account.GetCode()) > 0 {
+				if bytes.Equal(addr, to.Value) && len(account.GetCode()) > 0 {
 					skipTx = true
 					break
 				}

@@ -1,6 +1,9 @@
 syntax = "proto2";
 package research;
 
+// use wrapper for optional values
+import "google/protobuf/wrappers.proto";
+
 option go_package = "../research";
 
 message Substate {
@@ -42,34 +45,33 @@ message Substate {
             required bytes value = 2;
         }
         repeated BlockHashEntry block_hashes = 6;
-        optional bytes base_fee = 7;
-        optional bytes random = 8;
+        optional google.protobuf.BytesValue base_fee = 7;
+        optional google.protobuf.BytesValue random = 8;
     }
     required BlockEnv block_env = 3;
 
     message TxMessage {
         required uint64 nonce = 1;
-        //bool check_nonce = 2;
-        required bytes gas_price = 3;
-        required uint64 gas = 4;
+        required bytes gas_price = 2;
+        required uint64 gas = 3;
 
-        required bytes from = 5;
-        optional bytes to = 6;
-        required bytes value = 7;
+        required bytes from = 4;
+        optional google.protobuf.BytesValue to = 5;
+        required bytes value = 6;
 
         oneof input {
-            bytes data = 8;
-            bytes init_code_hash = 9;
+            bytes data = 7;
+            bytes init_code_hash = 8;
         }
 
         message AccessListEntry {
             required bytes address = 1;
             repeated bytes storage_keys = 2;
         }
-        repeated AccessListEntry access_list = 10;
+        repeated AccessListEntry access_list = 9;
 
-        optional bytes gas_fee_cap = 11;
-        optional bytes gas_tip_cap = 12;
+        optional google.protobuf.BytesValue gas_fee_cap = 10;
+        optional google.protobuf.BytesValue gas_tip_cap = 11;
     }
     required TxMessage tx_message = 4;
 

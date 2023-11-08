@@ -26,8 +26,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
-
-	// record-replay
 	"github.com/ethereum/go-ethereum/research"
 	"google.golang.org/protobuf/proto"
 )
@@ -442,7 +440,7 @@ func (m *Message) SaveSubstate(substate *research.Substate) {
 
 	t.From = research.AddressToBytes(&m.From)
 
-	t.To = research.AddressToBytes(m.To)
+	t.To = research.AddressToBytesValue(m.To)
 
 	t.Value = research.BigIntToBytes(m.Value)
 
@@ -459,9 +457,9 @@ func (m *Message) SaveSubstate(substate *research.Substate) {
 		}
 	}
 
-	t.GasFeeCap = research.BigIntToBytes(m.GasFeeCap)
+	t.GasFeeCap = research.BigIntToBytesValue(m.GasFeeCap)
 
-	t.GasTipCap = research.BigIntToBytes(m.GasTipCap)
+	t.GasTipCap = research.BigIntToBytesValue(m.GasTipCap)
 
 	substate.TxMessage = t
 }
@@ -478,7 +476,7 @@ func (m *Message) LoadSubstate(substate *research.Substate) {
 
 	m.From = *research.BytesToAddress(t.From)
 
-	m.To = research.BytesToAddress(t.To)
+	m.To = research.BytesValueToAddress(t.To)
 
 	m.Value = research.BytesToBigInt(t.Value)
 
@@ -494,7 +492,7 @@ func (m *Message) LoadSubstate(substate *research.Substate) {
 		m.AccessList = append(m.AccessList, tuple)
 	}
 
-	m.GasFeeCap = research.BytesToBigInt(t.GasFeeCap)
+	m.GasFeeCap = research.BytesValueToBigInt(t.GasFeeCap)
 
-	m.GasTipCap = research.BytesToBigInt(t.GasTipCap)
+	m.GasTipCap = research.BytesValueToBigInt(t.GasTipCap)
 }

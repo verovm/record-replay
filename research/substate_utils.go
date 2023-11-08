@@ -7,9 +7,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	// record-replay: import proto
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // HashToBytes in research package strictly returns nil if hash is nil
@@ -26,6 +25,23 @@ func BytesToHash(b []byte) *common.Hash {
 		return nil
 	}
 	hash := common.BytesToHash(b)
+	return &hash
+}
+
+// HashToBytesValue in research package strictly returns nil if hash is nil
+func HashToBytesValue(hash *common.Hash) *wrapperspb.BytesValue {
+	if hash == nil {
+		return nil
+	}
+	return wrapperspb.Bytes(hash.Bytes())
+}
+
+// BytesValueToHash in research package strictly returns nil if bv is nil
+func BytesValueToHash(bv *wrapperspb.BytesValue) *common.Hash {
+	if bv == nil {
+		return nil
+	}
+	hash := common.BytesToHash(bv.Value)
 	return &hash
 }
 
@@ -46,6 +62,23 @@ func BytesToAddress(b []byte) *common.Address {
 	return &addr
 }
 
+// AddressToBytesValue in research package strictly returns nil if addr is nil
+func AddressToBytesValue(addr *common.Address) *wrapperspb.BytesValue {
+	if addr == nil {
+		return nil
+	}
+	return wrapperspb.Bytes(addr.Bytes())
+}
+
+// BytesValueToAddress in research package strictly returns nil if bv is nil
+func BytesValueToAddress(bv *wrapperspb.BytesValue) *common.Address {
+	if bv == nil {
+		return nil
+	}
+	addr := common.BytesToAddress(bv.Value)
+	return &addr
+}
+
 // BigIntToBytes in research package strictly returns nil if x is nil
 func BigIntToBytes(x *big.Int) []byte {
 	if x == nil {
@@ -60,6 +93,22 @@ func BytesToBigInt(b []byte) *big.Int {
 		return nil
 	}
 	return new(big.Int).SetBytes(b)
+}
+
+// BigIntToBytesValue in research package strictly returns nil if x is nil
+func BigIntToBytesValue(x *big.Int) *wrapperspb.BytesValue {
+	if x == nil {
+		return nil
+	}
+	return wrapperspb.Bytes(x.Bytes())
+}
+
+// BytesValueToBigInt in research package strictly returns nil if bv is nil
+func BytesValueToBigInt(b *wrapperspb.BytesValue) *big.Int {
+	if b == nil {
+		return nil
+	}
+	return new(big.Int).SetBytes(b.Value)
 }
 
 // BloomToBytes in research package strictly returns nil if bloom is nil

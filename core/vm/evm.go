@@ -556,9 +556,9 @@ func (b *BlockContext) SaveSubstate(substate *research.Substate) {
 		})
 	}
 
-	e.BaseFee = research.BigIntToBytes(b.BaseFee)
+	e.BaseFee = research.BigIntToBytesValue(b.BaseFee)
 
-	e.Random = research.HashToBytes(b.Random)
+	e.Random = research.HashToBytesValue(b.Random)
 
 	substate.BlockEnv = e
 }
@@ -584,9 +584,9 @@ func (b *BlockContext) LoadSubstate(substate *research.Substate) {
 		}
 	}
 
-	b.BaseFee = research.BytesToBigInt(e.BaseFee)
+	b.BaseFee = research.BytesValueToBigInt(e.BaseFee)
 
-	b.Random = research.BytesToHash(e.Random)
+	b.Random = research.BytesValueToHash(e.Random)
 
 	// functions for substate replay
 	b.GetHash = func(num64 uint64) common.Hash {
