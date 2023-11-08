@@ -285,11 +285,11 @@ type ResearchReceipt struct {
 	Bloom  types.Bloom
 	Logs   []*types.Log
 
-	ContractAddress common.Address
+	ContractAddress *common.Address
 	GasUsed         uint64
 }
 
-func NewResearchReceipt(r *types.Receipt) *ResearchReceipt {
+func NewResearchReceipt(r *types.Receipt, to *common.Address) *ResearchReceipt {
 	rr := &ResearchReceipt{}
 
 	rr.Status = r.Status
@@ -303,7 +303,9 @@ func NewResearchReceipt(r *types.Receipt) *ResearchReceipt {
 		rr.Logs = append(rr.Logs, rrlog)
 	}
 
-	rr.ContractAddress = r.ContractAddress
+	if to == nil {
+		rr.ContractAddress = &r.ContractAddress
+	}
 	rr.GasUsed = r.GasUsed
 
 	return rr
@@ -330,7 +332,7 @@ func (rr *ResearchReceipt) SaveSubstate(substate *Substate) {
 		re.Logs = append(re.Logs, relog)
 	}
 
-	re.ContractAddress = AddressToBytes(&rr.ContractAddress)
+	re.ContractAddress = AddressToBytesValue(rr.ContractAddress)
 
 	re.GasUsed = proto.Uint64(rr.GasUsed)
 
@@ -356,7 +358,7 @@ func (rr *ResearchReceipt) LoadSubstate(substate *Substate) {
 		}
 	}
 
-	rr.ContractAddress = *BytesToAddress(re.ContractAddress)
+	rr.ContractAddress = BytesValueToAddress(re.ContractAddress)
 
 	rr.GasUsed = *re.GasUsed
 }
@@ -373,7 +375,7 @@ func EqualResult(x, y *Substate_Result) bool {
 	eq := *x.Status == *y.Status ||
 		bytes.Equal(x.Bloom, y.Bloom) ||
 		len(x.Logs) == len(y.Logs) ||
-		bytes.Equal(x.ContractAddress, y.ContractAddress) ||
+		proto.Equal(x.ContractAddress, y.ContractAddress) ||
 		*x.GasUsed == *y.GasUsed
 	if !eq {
 		return false

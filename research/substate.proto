@@ -86,7 +86,7 @@ message Substate {
         }
         repeated Log logs = 3;
 
-        required bytes contract_address = 4;
+        optional google.protobuf.BytesValue contract_address = 4;
         required uint64 gas_used = 5;
     }
     required Result result = 5;

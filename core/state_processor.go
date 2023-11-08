@@ -112,7 +112,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			msg.SaveSubstate(substate)
 
 			// convert *types.Receipt to *research.Receipt for SaveSubstae method
-			rr := research.NewResearchReceipt(receipt)
+			rr := research.NewResearchReceipt(receipt, msg.To)
 			rr.SaveSubstate(substate)
 
 			research.PutSubstate(block.NumberU64(), i, substate)
@@ -202,68 +202,47 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 
 // checkFaithfulReplay checks faithful transaction replay with the given substate
 func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) error {
-	var (
-		vmConfig    vm.Config
-		chainConfig *params.ChainConfig
-		getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error)
-	)
+	// InputAlloc
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	statedb.LoadSubstate(substate)
 
-	vmConfig = vm.Config{}
+	// BlockEnv
+	blockContext := vm.BlockContext{
+		CanTransfer: CanTransfer,
+		Transfer:    Transfer,
+	}
+	blockContext.LoadSubstate(substate)
+	blockNumber := blockContext.BlockNumber
 
-	chainConfig = &params.ChainConfig{}
+	// TxMessage
+	txMessage := &Message{}
+	txMessage.LoadSubstate(substate)
+
+	chainConfig := &params.ChainConfig{}
 	*chainConfig = *params.MainnetChainConfig
 	// disable DAOForkSupport, otherwise account states will be overwritten
 	chainConfig.DAOForkSupport = false
 
-	getTracerFn = func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error) {
-		return nil, nil
-	}
+	vmConfig := vm.Config{}
 
-	// Apply Message
-	db := rawdb.NewMemoryDatabase()
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
-	statedb.LoadSubstate(substate)
+	evm := vm.NewEVM(blockContext, vm.TxContext{}, statedb, chainConfig, vmConfig)
 
-	var (
-		gaspool   = new(GasPool)
-		blockHash = common.Hash{0x01}
-		txHash    = common.Hash{0x02}
-		txIndex   = tx
-	)
+	statedb.SetTxContext(common.Hash{}, tx)
 
-	blockCtx := vm.BlockContext{
-		CanTransfer: CanTransfer,
-		Transfer:    Transfer,
-	}
-	blockCtx.LoadSubstate(substate)
-	gaspool.AddGas(blockCtx.GasLimit)
+	txContext := NewEVMTxContext(txMessage)
+	evm.Reset(txContext, statedb)
 
-	msg := &Message{}
-	msg.LoadSubstate(substate)
+	gaspool := new(GasPool).AddGas(blockContext.GasLimit)
 
-	tracer, err := getTracerFn(txIndex, txHash)
-	if err != nil {
-		return err
-	}
-	vmConfig.Tracer = tracer
-
-	txCtx := vm.TxContext{
-		GasPrice: msg.GasPrice,
-		Origin:   msg.From,
-	}
-
-	statedb.SetTxContext(txHash, tx)
-
-	evm := vm.NewEVM(blockCtx, txCtx, statedb, chainConfig, vmConfig)
-	result, err := ApplyMessage(evm, msg, gaspool)
+	result, err := ApplyMessage(evm, txMessage, gaspool)
 	if err != nil {
 		return err
 	}
 
-	if chainConfig.IsByzantium(blockCtx.BlockNumber) {
+	if chainConfig.IsByzantium(blockNumber) {
 		statedb.Finalise(true)
 	} else {
-		statedb.IntermediateRoot(chainConfig.IsEIP158(blockCtx.BlockNumber))
+		statedb.IntermediateRoot(chainConfig.IsEIP158(blockNumber))
 	}
 
 	rr := &research.ResearchReceipt{}
@@ -272,18 +251,19 @@ func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) erro
 	} else {
 		rr.Status = types.ReceiptStatusSuccessful
 	}
-	rr.GasUsed = result.UsedGas
-
-	if msg.To == nil {
-		rr.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
-	}
-	rr.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
+	rr.Logs = statedb.GetLogs(common.Hash{}, blockContext.BlockNumber.Uint64(), common.Hash{})
 	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
+
+	if txMessage.To == nil {
+		contractAddr := crypto.CreateAddress(evm.TxContext.Origin, txMessage.Nonce)
+		rr.ContractAddress = &contractAddr
+	}
+	rr.GasUsed = result.UsedGas
 
 	replaySubstate := &research.Substate{}
 	statedb.SaveSubstate(replaySubstate)
-	blockCtx.SaveSubstate(replaySubstate)
-	msg.SaveSubstate(replaySubstate)
+	blockContext.SaveSubstate(replaySubstate)
+	txMessage.SaveSubstate(replaySubstate)
 	rr.SaveSubstate(replaySubstate)
 
 	eqAlloc := proto.Equal(substate.OutputAlloc, replaySubstate.OutputAlloc)

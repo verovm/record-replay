@@ -19,6 +19,7 @@ package core
 import (
 	"crypto/ecdsa"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,8 +33,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/research"
 	"github.com/ethereum/go-ethereum/trie"
 	"golang.org/x/crypto/sha3"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func u64(val uint64) *uint64 { return &val }
@@ -427,4 +430,17 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 		return types.NewBlockWithWithdrawals(header, txs, nil, receipts, []*types.Withdrawal{}, trie.NewStackTrie(nil))
 	}
 	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil))
+}
+
+func Test_122475_1(t *testing.T) {
+	b, err := os.ReadFile("record_substate_122475_1.json")
+	if err != nil {
+		panic(err)
+	}
+	x := &research.Substate{}
+	protojson.Unmarshal(b, x)
+	err = checkFaithfulReplay(122475, 1, x)
+	if err != nil {
+		panic(err)
+	}
 }

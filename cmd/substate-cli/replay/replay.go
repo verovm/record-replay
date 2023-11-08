@@ -106,7 +106,8 @@ func replayTask(block uint64, tx int, substate *research.Substate, taskPool *res
 	rr.GasUsed = result.UsedGas
 
 	if msg.To == nil {
-		rr.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
+		contractAddr := crypto.CreateAddress(evm.TxContext.Origin, msg.Nonce)
+		rr.ContractAddress = &contractAddr
 	}
 	rr.Logs = statedb.GetLogs(txHash, blockCtx.BlockNumber.Uint64(), blockHash)
 	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
