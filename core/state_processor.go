@@ -93,6 +93,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		statedb.SetTxContext(tx.Hash(), i)
+
+		// SetTxContext method will reset statedb.Research*
+		// reset blockContext.ResearchBlockHashes manually
+		vmenv.Context.ResearchBlockHashes = nil
+
 		receipt, err := applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
@@ -100,24 +105,23 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 		// record-replay: save tx substate into DBs, merge block hashes to env
 		{
-			// SetTxContext method will reset statedb.Research*
 			substate := &research.Substate{}
 			statedb.SaveSubstate(substate)
 
-			// reset blockContext.ResearchBlockHashes manually
+			// load blockContext again from vmenv because it does not hold a pointer
+			blockContext := &vmenv.Context
 			blockContext.SaveSubstate(substate)
-			blockContext.ResearchBlockHashes = nil
 
 			// nothing to reset
 			msg.SaveSubstate(substate)
 
 			// convert *types.Receipt to *research.Receipt for SaveSubstae method
-			rr := research.NewResearchReceipt(receipt, msg.To)
+			rr := research.NewResearchReceipt(receipt)
 			rr.SaveSubstate(substate)
 
 			research.PutSubstate(block.NumberU64(), i, substate)
 
-			// TODO: check substate works for faithful replay
+			// check substate works for faithful replay
 			go func(block uint64, tx int, substate *research.Substate) {
 				err := checkFaithfulReplay(block, tx, substate)
 				if err != nil {
@@ -201,6 +205,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 }
 
 // checkFaithfulReplay checks faithful transaction replay with the given substate
+// and store json files of substates if execution results are different.
 func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) error {
 	// InputAlloc
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
@@ -271,17 +276,20 @@ func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) erro
 			Indent: "  ",
 		}
 
-		x := substate
-		xj, _ := jm.Marshal(x)
-		xp := fmt.Sprintf("record_substate_%v_%v.json", block, tx)
-		os.WriteFile(xp, xj, 0644)
+		var b []byte
 
-		y := replaySubstate
-		yj, _ := jm.Marshal(y)
-		yp := fmt.Sprintf("replay_substate_%v_%v.json", block, tx)
-		os.WriteFile(yp, yj, 0644)
+		b, _ = jm.Marshal(substate)
+		os.WriteFile(fmt.Sprintf("record_substate_%v_%v.json", block, tx), b, 0644)
+		b, _ = jm.Marshal(substate.HashedCopy())
+		os.WriteFile(fmt.Sprintf("record_substate_%v_%v_hashed.json", block, tx), b, 0644)
 
-		fmt.Printf("Substates saved in %s and %s (bytes in base64)\n", xp, yp)
+		b, _ = jm.Marshal(replaySubstate)
+		os.WriteFile(fmt.Sprintf("replay_substate_%v_%v.json", block, tx), b, 0644)
+		b, _ = jm.Marshal(replaySubstate.HashedCopy())
+		os.WriteFile(fmt.Sprintf("replay_substate_%v_%v_hashed.json", block, tx), b, 0644)
+
+		fmt.Printf("Saved record/replay_substate_*.json files (bytes in base64)\n")
+
 		return fmt.Errorf("not faithful replay - inconsistent output")
 	}
 

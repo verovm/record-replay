@@ -285,11 +285,10 @@ type ResearchReceipt struct {
 	Bloom  types.Bloom
 	Logs   []*types.Log
 
-	ContractAddress *common.Address
-	GasUsed         uint64
+	GasUsed uint64
 }
 
-func NewResearchReceipt(r *types.Receipt, to *common.Address) *ResearchReceipt {
+func NewResearchReceipt(r *types.Receipt) *ResearchReceipt {
 	rr := &ResearchReceipt{}
 
 	rr.Status = r.Status
@@ -303,9 +302,6 @@ func NewResearchReceipt(r *types.Receipt, to *common.Address) *ResearchReceipt {
 		rr.Logs = append(rr.Logs, rrlog)
 	}
 
-	if to == nil {
-		rr.ContractAddress = &r.ContractAddress
-	}
 	rr.GasUsed = r.GasUsed
 
 	return rr
