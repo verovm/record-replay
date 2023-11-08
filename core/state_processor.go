@@ -254,10 +254,6 @@ func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) erro
 	rr.Logs = statedb.GetLogs(common.Hash{}, blockContext.BlockNumber.Uint64(), common.Hash{})
 	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
 
-	if txMessage.To == nil {
-		contractAddr := crypto.CreateAddress(evm.TxContext.Origin, txMessage.Nonce)
-		rr.ContractAddress = &contractAddr
-	}
 	rr.GasUsed = result.UsedGas
 
 	replaySubstate := &research.Substate{}

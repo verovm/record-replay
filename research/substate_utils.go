@@ -332,8 +332,6 @@ func (rr *ResearchReceipt) SaveSubstate(substate *Substate) {
 		re.Logs = append(re.Logs, relog)
 	}
 
-	re.ContractAddress = AddressToBytesValue(rr.ContractAddress)
-
 	re.GasUsed = proto.Uint64(rr.GasUsed)
 
 	substate.Result = re
@@ -358,8 +356,6 @@ func (rr *ResearchReceipt) LoadSubstate(substate *Substate) {
 		}
 	}
 
-	rr.ContractAddress = BytesValueToAddress(re.ContractAddress)
-
 	rr.GasUsed = *re.GasUsed
 }
 
@@ -375,7 +371,6 @@ func EqualResult(x, y *Substate_Result) bool {
 	eq := *x.Status == *y.Status ||
 		bytes.Equal(x.Bloom, y.Bloom) ||
 		len(x.Logs) == len(y.Logs) ||
-		proto.Equal(x.ContractAddress, y.ContractAddress) ||
 		*x.GasUsed == *y.GasUsed
 	if !eq {
 		return false
