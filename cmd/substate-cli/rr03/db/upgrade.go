@@ -16,7 +16,7 @@ import (
 
 var UpgradeCommand = &cli.Command{
 	Action: upgrade,
-	Name:   "rr-0.3-db-upgrade",
+	Name:   "rr0.3-db-upgrade",
 	Usage:  "upgrade old rr0.1 DB layout (stage1-substate/) to new rr0.3 DB layout (substate.ethereum)",
 	Flags: []cli.Flag{
 		&cli.PathFlag{
