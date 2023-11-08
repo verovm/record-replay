@@ -294,14 +294,17 @@ func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) erro
 		jm := protojson.MarshalOptions{
 			Indent: "  ",
 		}
-		x := substate.HashedCopy()
+
+		x := substate
 		xj, _ := jm.Marshal(x)
 		xp := fmt.Sprintf("record_substate_%v_%v.json", block, tx)
 		os.WriteFile(xp, xj, 0644)
-		y := replaySubstate.HashedCopy()
+
+		y := replaySubstate
 		yj, _ := jm.Marshal(y)
 		yp := fmt.Sprintf("replay_substate_%v_%v.json", block, tx)
 		os.WriteFile(yp, yj, 0644)
+
 		fmt.Printf("Substates saved in %s and %s (bytes in base64)\n", xp, yp)
 		return fmt.Errorf("not faithful replay - inconsistent output")
 	}
