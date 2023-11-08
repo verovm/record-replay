@@ -290,18 +290,19 @@ func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) erro
 	eqResult := proto.Equal(substate.Result, replaySubstate.Result)
 
 	if !(eqAlloc && eqResult) {
-		fmt.Printf("block %v, tx %v, inconsistent output report BEGIN\n", block, tx)
+		fmt.Printf("block %v, tx %v, inconsistent output\n", block, tx)
 		jm := protojson.MarshalOptions{
 			Indent: "  ",
 		}
 		x := substate.HashedCopy()
 		xj, _ := jm.Marshal(x)
-		os.WriteFile(fmt.Sprintf("record_substate_%v_%v.json", block, tx), xj, 0644)
+		xp := fmt.Sprintf("record_substate_%v_%v.json", block, tx)
+		os.WriteFile(xp, xj, 0644)
 		y := replaySubstate.HashedCopy()
 		yj, _ := jm.Marshal(y)
-		os.WriteFile(fmt.Sprintf("replay_substate_%v_%v.json", block, tx), yj, 0644)
-		fmt.Printf("block %v, tx %v, inconsistent output report END\n", block, tx)
-		fmt.Printf("block %v, tx %v, written to record_substate.json and replay_substate.json\n", block, tx)
+		yp := fmt.Sprintf("replay_substate_%v_%v.json", block, tx)
+		os.WriteFile(yp, yj, 0644)
+		fmt.Printf("Substates saved in %s and %s (bytes in base64)\n", xp, yp)
 		return fmt.Errorf("not faithful replay - inconsistent output")
 	}
 
