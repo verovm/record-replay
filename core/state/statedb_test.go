@@ -32,6 +32,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/research"
+	"google.golang.org/protobuf/proto"
 )
 
 // Tests that updating a state trie does not leak any database writes prior to
@@ -996,5 +998,34 @@ func TestStateDBTransientStorage(t *testing.T) {
 	cpy := state.Copy()
 	if got := cpy.GetTransientState(addr, key); got != value {
 		t.Fatalf("transient storage mismatch: have %x, want %x", got, value)
+	}
+}
+
+func TestStateDBSaveSubstateOutputAlloc(t *testing.T) {
+	statedb, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	addr := common.HexToAddress("0x1")
+	statedb.SetCode(addr, []byte{2})
+	statedb.SetNonce(addr, 3)
+	statedb.SetBalance(addr, big.NewInt(4))
+	statedb.SetState(addr, common.HexToHash("0x5"), common.HexToHash("0x6"))
+	statedb.Commit(false)
+
+	statedb.SetTxContext(common.Hash{}, 0)
+	statedb.GetState(addr, common.HexToHash("0x5"))
+	statedb.GetState(addr, common.HexToHash("0x7"))
+	statedb.Finalise(false)
+	substate := &research.Substate{}
+	statedb.SaveSubstate(substate)
+	if !proto.Equal(substate.InputAlloc, substate.OutputAlloc) {
+		t.Error("input alloc and output alloc must be equal")
+	}
+
+	statedb.SetTxContext(common.Hash{}, 0)
+	statedb.SetState(addr, common.HexToHash("0x7"), common.HexToHash("0x8"))
+	statedb.SetState(addr, common.HexToHash("0x9"), common.HexToHash("0x10"))
+	statedb.Finalise(false)
+	statedb.SaveSubstate(substate)
+	if proto.Equal(substate.InputAlloc, substate.OutputAlloc) {
+		t.Error("input alloc and output alloc must be different")
 	}
 }
