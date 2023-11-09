@@ -20,6 +20,7 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -442,5 +443,41 @@ func Test_122475_1(t *testing.T) {
 	err = checkFaithfulReplay(122475, 1, x)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func TestSaveSubstateAccessList(t *testing.T) {
+	msg1 := Message{
+		Nonce:    1,
+		GasPrice: big.NewInt(2),
+		GasLimit: 3,
+
+		From:  *research.BytesToAddress([]byte{4}),
+		To:    research.BytesToAddress([]byte{5}),
+		Value: big.NewInt(6),
+		Data:  []byte{7},
+
+		ResearchTxType: types.DynamicFeeTxType,
+
+		AccessList: types.AccessList{
+			types.AccessTuple{
+				Address:     *research.BytesToAddress([]byte{1}),
+				StorageKeys: nil,
+			},
+		},
+
+		GasFeeCap: big.NewInt(10),
+		GasTipCap: big.NewInt(11),
+	}
+
+	substate := &research.Substate{}
+
+	msg1.SaveSubstate(substate)
+
+	msg2 := Message{}
+	msg2.LoadSubstate(substate)
+
+	if !reflect.DeepEqual(msg1.AccessList, msg2.AccessList) {
+		t.Errorf("access list is different: %q, %q", msg1.AccessList, msg2.AccessList)
 	}
 }

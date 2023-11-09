@@ -467,7 +467,7 @@ func (m *Message) SaveSubstate(substate *research.Substate) {
 	switch *t.TxType {
 	case research.Substate_TxMessage_TXTYPE_ACCESSLIST,
 		research.Substate_TxMessage_TXTYPE_DYNAMICFEE:
-		m.AccessList = make(types.AccessList, 0, len(m.AccessList))
+		t.AccessList = make([]*research.Substate_TxMessage_AccessListEntry, 0, len(m.AccessList))
 		for _, tuple := range m.AccessList {
 			entry := &research.Substate_TxMessage_AccessListEntry{}
 			entry.Address = research.AddressToBytes(&tuple.Address)
@@ -518,6 +518,7 @@ func (m *Message) LoadSubstate(substate *research.Substate) {
 
 	switch m.ResearchTxType {
 	case types.AccessListTxType, types.DynamicFeeTxType:
+		m.AccessList = make(types.AccessList, 0, len(t.AccessList))
 		for _, entry := range t.AccessList {
 			tuple := types.AccessTuple{
 				Address: *research.BytesToAddress(entry.Address),
