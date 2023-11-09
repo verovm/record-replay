@@ -154,7 +154,8 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	if chainConfig.IsByzantium(blockNumber) {
 		statedb.Finalise(true)
 	} else {
-		statedb.IntermediateRoot(chainConfig.IsEIP158(blockNumber))
+		// No need for root hash, call  Finalise instead of IntermediateRoot
+		statedb.Finalise(chainConfig.IsEIP158(blockNumber))
 	}
 
 	rr := &research.ResearchReceipt{}
