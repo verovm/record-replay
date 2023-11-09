@@ -873,22 +873,25 @@ func (s *StateDB) GetRefund() uint64 {
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 
 	// record-replay: copy original storage values to Prestate and Poststate
-	for addr, sa := range s.ResearchPreAlloc {
-		if sa == nil {
-			delete(s.ResearchPreAlloc, addr)
-			continue
-		}
-
-		obj := s.stateObjects[addr]
-		for key := range obj.ResearchTouched {
-			value := obj.GetCommittedState(s.db, key)
-			entry := research.Substate_Account_StorageEntry{
-				Key:   research.HashToBytes(&key),
-				Value: research.HashToBytes(&value),
+	{
+		for addr, sa := range s.ResearchPreAlloc {
+			if sa == nil {
+				delete(s.ResearchPreAlloc, addr)
+				continue
 			}
-			sa.Storage = append(sa.Storage, &entry)
+
+			obj := s.stateObjects[addr]
+			for key := range obj.ResearchTouched {
+				// GetComittedState to get original values
+				value := obj.GetCommittedState(s.db, key)
+				entry := &research.Substate_Account_StorageEntry{
+					Key:   research.HashToBytes(&key),
+					Value: research.HashToBytes(&value),
+				}
+				sa.Storage = append(sa.Storage, entry)
+			}
+			s.ResearchPostAlloc[addr] = proto.Clone(sa).(*research.Substate_Account)
 		}
-		s.ResearchPostAlloc[addr] = proto.Clone(sa).(*research.Substate_Account)
 	}
 
 	addressesToPrefetch := make([][]byte, 0, len(s.journal.dirties))
@@ -925,20 +928,23 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		} else {
 
 			// record-replay: copy dirty account to StateDB.ResearchPostAlloc
-			sa := &research.Substate_Account{
-				Nonce:    proto.Uint64(obj.Nonce()),
-				Balance:  research.BigIntToBytes(obj.Balance()),
-				Contract: &research.Substate_Account_Code{Code: obj.Code(s.db)},
-			}
-			for key := range obj.ResearchTouched {
-				value := obj.GetCommittedState(s.db, key)
-				entry := research.Substate_Account_StorageEntry{
-					Key:   research.HashToBytes(&key),
-					Value: research.HashToBytes(&value),
+			{
+				sa := &research.Substate_Account{
+					Nonce:    proto.Uint64(obj.Nonce()),
+					Balance:  research.BigIntToBytes(obj.Balance()),
+					Contract: &research.Substate_Account_Code{Code: obj.Code(s.db)},
 				}
-				sa.Storage = append(sa.Storage, &entry)
+				for key := range obj.ResearchTouched {
+					// GetState to get modified values
+					value := obj.GetState(s.db, key)
+					entry := &research.Substate_Account_StorageEntry{
+						Key:   research.HashToBytes(&key),
+						Value: research.HashToBytes(&value),
+					}
+					sa.Storage = append(sa.Storage, entry)
+				}
+				s.ResearchPostAlloc[addr] = proto.Clone(sa).(*research.Substate_Account)
 			}
-			s.ResearchPostAlloc[addr] = proto.Clone(sa).(*research.Substate_Account)
 
 			obj.finalise(true) // Prefetch slots in the background
 		}
