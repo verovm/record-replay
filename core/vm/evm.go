@@ -563,7 +563,9 @@ func (b *BlockContext) SaveSubstate(substate *research.Substate) {
 	substate.BlockEnv = e
 }
 
-// record-replay (*BlockContext).LoadSubstate
+// record-replay (*BlockContext).LoadSubstate loads values except
+// CanTransfer and Transfer causing cyclic imports and
+// ResearchBlockHashes used only for recording and tracing.
 func (b *BlockContext) LoadSubstate(substate *research.Substate) {
 	e := substate.BlockEnv
 
@@ -577,23 +579,20 @@ func (b *BlockContext) LoadSubstate(substate *research.Substate) {
 
 	b.Time = *e.Timestamp
 
-	if e.BlockHashes != nil {
-		b.ResearchBlockHashes = make(map[uint64]common.Hash)
-		for _, entry := range e.BlockHashes {
-			b.ResearchBlockHashes[*entry.Key] = *research.BytesToHash(entry.Value)
-		}
-	}
+	// Do not load ResearchBlockHashes which is used only for recording
 
 	b.BaseFee = research.BytesValueToBigInt(e.BaseFee)
 
 	b.Random = research.BytesValueToHash(e.Random)
 
-	// functions for substate replay
-	b.GetHash = func(num64 uint64) common.Hash {
-		if b.ResearchBlockHashes == nil {
-			return common.Hash{}
+	// Copy block hashes for GetHash for faithful replay
+	blockHashes := make(map[uint64]common.Hash, len(e.BlockHashes))
+	if e.BlockHashes != nil {
+		for _, entry := range e.BlockHashes {
+			blockHashes[*entry.Key] = *research.BytesToHash(entry.Value)
 		}
-		h := b.ResearchBlockHashes[num64]
-		return h
+	}
+	b.GetHash = func(num64 uint64) common.Hash {
+		return blockHashes[num64]
 	}
 }
