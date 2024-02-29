@@ -200,9 +200,7 @@ OPTIONS:
 `substate-cli db-*` commands are additional commands to directly manipulate substate DBs.
 
 ### `db-upgrade`
-NOTE: `rr0.4.0` does not provide `substate-cli db-upgrade` command to convert rr0.3 RLP substates to rr0.4 Protobuf substates.
-rr0.4 requires `Message.TxType` but rr0.3 does not have it.
-In the next release, there will be a newer version of `substate-cli db-upgrade` command which can guess tx types from access lists and gas fee values, or supplements tx types from Geth database, exported blockchain files, or text/CSV/JSON files.
+NOTE: `rr0.4.0` does not provide `substate-cli db-upgrade` command to convert rr0.3 RLP substates to rr0.4 Protobuf substates. rr0.4 requires `Message.TxType` but rr0.3 does not have it. In the next release, there will be a newer version of `substate-cli db-upgrade` command which can guess tx types from access lists and gas fee values, or supplements tx types from Geth database, exported blockchain files, or text/CSV/JSON files.
 
 `substate-cli db-upgrade` command converts the old DB layout (`stage1-substate`) used for the USENIX ATC'21 paper to the latest DB layout (`substate.ethereum`).
 ```
