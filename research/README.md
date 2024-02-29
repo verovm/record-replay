@@ -61,7 +61,7 @@ Here is a simple way how to record substates.
 1. Download the unmodified Geth client that this repository is based on.
 For example, you can find in the release notes that record-replay `rr0.3.2` is based on Geth `v1.10.15`.
 Since `rr0.4`, you can find it running **the `geth --version` from record-replay**.
-For example, it will print `geth version 1.11.6-rr0.4.0-8c78cca3` which indicates `rr0.4.0` is based on Geth `v1.11.6`.
+For example, it will print `geth version 1.11.6-rr0.4.0-commit` which indicates `rr0.4.0` is based on Geth `v1.11.6`.
 2. Sync **the unmodified Geth** up to the block that you want to record and replay.
 Geth full/snap sync will download blocks from the genesis block.
 3. Export blocks using **the unmodified Geth**.
@@ -95,7 +95,7 @@ You can use SI unit suffix `k` and `M` to `--block-segment` for shorter notation
 ```bash
 ./substate-cli replay --block-segment 1-2M
 ```
-NOTE: When use `k` or `M` to `--block-segment`, the first block number ends with `1`, not `0`.
+NOTE: When use `k` or `M` to `--block-segment`, the last digit of the first block number is `1`, not `0`.
 
 Here are command line options for `substate-cli replay`:
 ```
@@ -200,6 +200,10 @@ OPTIONS:
 `substate-cli db-*` commands are additional commands to directly manipulate substate DBs.
 
 ### `db-upgrade`
+NOTE: `rr0.4.0` does not provide `substate-cli db-upgrade` command to convert rr0.3 RLP substates to rr0.4 Protobuf substates.
+rr0.4 requires `Message.TxType` but rr0.3 does not have it.
+In the next release, there will be a newer version of `substate-cli db-upgrade` command which can guess tx types from access lists and gas fee values, or supplements tx types from Geth database, exported blockchain files, or text/CSV/JSON files.
+
 `substate-cli db-upgrade` command converts the old DB layout (`stage1-substate`) used for the USENIX ATC'21 paper to the latest DB layout (`substate.ethereum`).
 ```
 ./substate-cli db-upgrade --old-path stage1-substate --new-path substate.ethereum

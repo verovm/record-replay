@@ -11,7 +11,10 @@ import (
 
 var (
 	SubstateDirFlag = &cli.PathFlag{
-		Name:  "substatedir",
+		Name: "substatedir",
+		Aliases: []string{
+			"substate-db",
+		},
 		Usage: "Data directory for substate recorder/replayer",
 		Value: "substate.ethereum",
 	}

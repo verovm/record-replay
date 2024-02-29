@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum/go-ethereum/cmd/substate-cli/db"
 	"github.com/ethereum/go-ethereum/cmd/substate-cli/replay"
 	rr03_db "github.com/ethereum/go-ethereum/cmd/substate-cli/rr03/db"
 	"github.com/ethereum/go-ethereum/internal/flags"
@@ -19,6 +20,8 @@ func init() {
 	app.Commands = []*cli.Command{
 		replay.ReplayCommand,
 		replay.ReplayForkCommand,
+		db.CloneCommand,
+		db.CompactCommand,
 		rr03_db.UpgradeCommand,
 		rr03_db.CloneCommand,
 		rr03_db.CompactCommand,
