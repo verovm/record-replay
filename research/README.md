@@ -60,17 +60,17 @@ Therefore, you need to write a Go program to properly read and write Goleveldb i
 Here is a simple way how to record substates.
 1. Download the unmodified Geth client that this repository is based on.
 For example, you can find in the release notes that record-replay `rr0.3.2` is based on Geth `v1.10.15`.
-Since `rr0.4`, you can find it running **the `geth --version` from record-replay**.
+Since `rr0.4`, you can find it running the `geth --version` from record-replay.
 For example, it will print `geth version 1.11.6-rr0.4.0-commit` which indicates `rr0.4.0` is based on Geth `v1.11.6`.
-2. Sync **the unmodified Geth** up to the block that you want to record and replay.
+2. Sync `geth` up to the block that you want to record and replay.
 Geth full/snap sync will download blocks from the genesis block.
-3. Export blocks using **the unmodified Geth**.
+3. Export blocks using `geth export` command.
 For example, `geth export ethereum.blockchain` to export from the genesis block to the latest synced block.
-4. Import the exported blocks using **the `geth import` from record-replay** from scratch.
+4. Import the exported blocks using `geth record-substate` command from scratch.
 For example, `geth --datadir new.ethereum import ethereum.blockchain` to import and record the exported blocks from the unmodified Geth.
 
-If you want to record a specific range of blocks `X-Y`, you need the (unmodified) Geth database whose head block is `X-1`, and blocks `X-Y` exported to a file.
-If you don't have the Geth database at block `X-1`, then you need to export blocks up to `X-1` with the unmodified Geth, and import it from scratch again.
+If you want to record a specific range of blocks `(X)-(Y)`, you need the Geth database specified by `--datadir` whose head block is `(X-1)`, and blocks `(X)-(Y)` exported to a file.
+If you don't have the Geth database at block `(X-1)`, then you need to export blocks up to `(X-1)` with the unmodified Geth, and import it from scratch again.
 
 The output directory specified by `--substatedir` (default: `substate.ethereum`) is the substate DB.
 The directory is a single LevelDB instance, so you must read or write the substate DB with `github.com/syndtr/goleveldb` module.
@@ -123,7 +123,7 @@ OPTIONS:
           Skip executing CREATE transactions
     --skip-transfer-txs            (default: false)
           Skip executing transactions that only transfer ETH
-    --substatedir value            (default: "substate.ethereum")
+    --substatedir value, --substate-db value (default: "substate.ethereum")
           Data directory for substate recorder/replayer
     --workers value                (default: 4)
           Number of worker threads (goroutines), 0 for current CPU physical cores
@@ -188,7 +188,7 @@ OPTIONS:
           Skip executing CREATE transactions
     --skip-transfer-txs            (default: false)
           Skip executing transactions that only transfer ETH
-    --substatedir value            (default: "substate.ethereum")
+    --substatedir value, --substate-db value (default: "substate.ethereum")
           Data directory for substate recorder/replayer
     --workers value                (default: 4)
           Number of worker threads (goroutines), 0 for current CPU physical cores

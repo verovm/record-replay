@@ -95,8 +95,6 @@ if one is set.  Otherwise it prints the genesis from the datadir.`,
 			utils.MetricsInfluxDBBucketFlag,
 			utils.MetricsInfluxDBOrganizationFlag,
 			utils.TxLookupLimitFlag,
-			// record-replay: geth import --substatedir flag
-			research.SubstateDirFlag,
 		}, utils.DatabasePathFlags),
 		Description: `
 The import command imports blocks from an RLP-encoded form. The form can be one file
@@ -249,12 +247,6 @@ func dumpGenesis(ctx *cli.Context) error {
 }
 
 func importChain(ctx *cli.Context) error {
-
-	// record-replay: importChain OpenSubstateDB
-	research.SetSubstateFlags(ctx)
-	research.OpenSubstateDB()
-	defer research.CloseSubstateDB()
-
 	if ctx.Args().Len() < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
@@ -499,3 +491,24 @@ func hashish(x string) bool {
 	_, err := strconv.Atoi(x)
 	return err != nil
 }
+
+// record-replay: record-substate is derived from import command
+var recordSubstateCommand = func() *cli.Command {
+	c := &cli.Command{}
+	*c = *importCommand
+	c.Action = func(ctx *cli.Context) error {
+		core.RecordSubstateFlag = true
+
+		research.SetSubstateFlags(ctx)
+		research.OpenSubstateDB()
+		defer research.CloseSubstateDB()
+
+		return importChain(ctx)
+	}
+	c.Name = "record-substate"
+	c.Usage = "(record-replay) Record substates during geth import"
+	c.Flags = flags.Merge(c.Flags, []cli.Flag{
+		research.SubstateDirFlag,
+	})
+	return c
+}()

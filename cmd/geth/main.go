@@ -242,6 +242,9 @@ func init() {
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
+	// record-replay: add record-substate command
+	app.Commands = append(app.Commands, recordSubstateCommand)
+
 	app.Flags = flags.Merge(
 		nodeFlags,
 		rpcFlags,

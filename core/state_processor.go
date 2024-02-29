@@ -35,6 +35,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// record-replay: record substates when true
+var RecordSubstateFlag = false
+
 // StateProcessor is a basic Processor, which takes care of transitioning
 // state from one point to another.
 //
@@ -104,7 +107,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 
 		// record-replay: save tx substate into DBs, merge block hashes to env
-		{
+		if RecordSubstateFlag {
 			substate := &research.Substate{}
 			statedb.SaveSubstate(substate)
 
