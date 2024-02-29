@@ -79,14 +79,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 
 		// record-replay: Finalise all DAO accounts, don't save them in substate
-		if config := p.config; config.IsByzantium(header.Number) {
-			statedb.Finalise(true)
-		} else {
-			statedb.Finalise(config.IsEIP158(header.Number))
+		if RecordSubstateFlag {
+			if config := p.config; config.IsByzantium(header.Number) {
+				statedb.Finalise(true)
+			} else {
+				statedb.Finalise(config.IsEIP158(header.Number))
+			}
 		}
 
 	}
-
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
 	// Iterate over and process the individual transactions
