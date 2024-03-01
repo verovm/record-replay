@@ -6,6 +6,8 @@ Ethereum substate recorder/replayer based on the paper:
 To build all programs, simply run `make all`.
 You can find all executables including `geth` and our `substate-cli` in `build/bin/` directory.
 
+Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
+
 
 
 ## Substate data structures
