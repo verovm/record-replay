@@ -9,12 +9,12 @@
   * Option 1: `db-upgrade` guesses tx types from the values of access lists and gas fees, as long as it guarantees faithful transaction replay.
   * Option 2: `db-upgrade` reads tx types from exported blockchain files.
 * Update `substate-cli replay-fork` to support the latest hard forks in PoS era.
-* A new database backend to replace Goleveldb. Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation.
+* A new database backend to replace Goleveldb. Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation. A new DB backend should support in-database compression to keep billions of substates manageable. A new DB backend should show moderate write speed and fast read speed.
   * Option 1: Pebble. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language.
   * Option 2: Any embedded database implementation that supports Go and other major languages (C++, Java, Python) and in-database compression.
-  * Option 3: Any database server with SQL or GraphQL query support.
+  * Option 3: Any external/remote database with SQL or GraphQL query support. Geth has `--remotedb` option to access a remote read-only key-value database. Geth's [remotedb](https://pkg.go.dev/github.com/ethereum/go-ethereum/ethdb/remotedb) module uses `debug_dbGet` method. The main purpose of remotedb is debugging, not performance or scalability.
 * Prepare for upcoming hard forks in 2024.
-  * New hard forks require the latest Geth 1.13. The current record-replay is based on Geth 1.11.6 because Geth 1.12 has a problem importing PoW blocks. We must double-check whether Geth 1.13 can process PoW blocks. Otherwise, we need to use Geth 1.11 for PoW blocks and Geth 1.13 for PoS blocks in substate recording.
+  * New hard forks require the latest Geth v1.13. The current record-replay is based on Geth v1.11.6 because Geth v1.12 has a problem importing PoW blocks. We must double-check whether Geth v1.13 can process PoW blocks. Otherwise, we need to use Geth v1.11 for PoW blocks and Geth 1.13 for PoS blocks in substate recording.
 
 ### DONE
 * Add CHANGELOG.md
@@ -45,7 +45,7 @@
 
 ## record-replay 0.3.4 Releate Note
 
-**Full Changelog**: https://github.com/verovm/record-replay/commits/rr0.3.4
+**Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.3.3...rr0.3.4
 
 ### Updates
 * Support hard fork Gray Glacier (`15_050_000`).
