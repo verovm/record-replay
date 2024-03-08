@@ -21,7 +21,7 @@
 * Add a new version of `substate-cli db-upgrade` command to convert rr0.3 RLP substates to rr0.4 Protobuf substates.
 With `--blockchain` option, `db-upgrade` reads tx types from exported blockchain files.
 Without `--blockchain`, `db-upgrade` guesses tx types from the values of access lists and gas fees, as long as it guarantees faithful transaction replay.
-* New `make record-replay` (or `make rr`) target for selectively faster compilation of recorder and replayer.
+* New `make record-replay` target for selectively faster compilation of recorder and replayer. Simpler targets `make rr` and `make`.
 
 
 

@@ -3,7 +3,8 @@ Ethereum substate recorder/replayer based on the paper:
 
 **Yeonsoo Kim, Seongho Jeong, Kamil Jezek, Bernd Burgstaller, and Bernhard Scholz**: _An Off-The-Chain Execution Environment for Scalable Testing and Profiling of Smart Contracts_,  USENIX ATC'21
 
-To build our recorder (`geth record-substate`) and replayer (`substate-cli`), run `make record-replay` or `make rr`.
+To build our recorder (`geth record-substate`) and replayer (`substate-cli`), run `make record-repaly`.
+Running `make rr` or `make` works exactly same as `make record-replay`.
 You can find all executables including `geth` and our `substate-cli` in `build/bin/` directory.
 
 Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
