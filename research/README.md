@@ -3,7 +3,7 @@ Ethereum substate recorder/replayer based on the paper:
 
 **Yeonsoo Kim, Seongho Jeong, Kamil Jezek, Bernd Burgstaller, and Bernhard Scholz**: _An Off-The-Chain Execution Environment for Scalable Testing and Profiling of Smart Contracts_,  USENIX ATC'21
 
-To build all programs, simply run `make all`.
+To build our recorder (`geth record-substate`) and replayer (`substate-cli`), run `make record-replay` or `make rr`.
 You can find all executables including `geth` and our `substate-cli` in `build/bin/` directory.
 
 Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
@@ -202,11 +202,16 @@ OPTIONS:
 `substate-cli db-*` commands are additional commands to directly manipulate substate DBs.
 
 ### `db-upgrade`
-NOTE: `rr0.4.0` does not provide `substate-cli db-upgrade` command to convert rr0.3 RLP substates to rr0.4 Protobuf substates. rr0.4 requires `Message.TxType` but rr0.3 does not have it. In the next release, there will be a newer version of `substate-cli db-upgrade` command which can guess tx types from access lists and gas fee values, or supplements tx types from Geth database, exported blockchain files, or text/CSV/JSON files.
-
-`substate-cli db-upgrade` command converts the old DB layout (`stage1-substate`) used for the USENIX ATC'21 paper to the latest DB layout (`substate.ethereum`).
+`substate-cli db-upgrade` command converts the old rr0.3 DB layout (RLP) to the rr0.4 DB layout (Protobuf).
+To guarantee faithful replay after upgrading, `db-upgrade` replays the upgraded substates before write them to the new substate DB.
+`--blockchain` option can be used to supplement tx types which are required for rr0.4 substates but missing in rr0.3 substates.
 ```
-./substate-cli db-upgrade --old-path stage1-substate --new-path substate.ethereum
+./substate-cli db-upgrade --old-path rr0.3.substate.ethereum --new-path rr0.4.substate.ethereum --blockchain 0-1M.blockchain --blcok-segment 0-1M --workers 0
+```
+
+If `--blockchain` is not provided, then `substate db-upgrade` will guess tx types based on access lists and dynamic gas fees.
+```
+./substate-cli db-upgrade --old-path rr0.3.substate.ethereum --new-path rr0.4.substate.ethereum --blcok-segment 0-1M --workers 0
 ```
 
 ### `db-clone`
