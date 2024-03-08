@@ -126,6 +126,11 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	blockContext.LoadSubstate(substate)
 	blockNumber := blockContext.BlockNumber
 
+	// Prevent segfault in opRandom function
+	if blockContext.Random == nil {
+		blockContext.Random = &common.Hash{}
+	}
+
 	// TxMessage
 	txMessage := &core.Message{}
 	txMessage.LoadSubstate(substate)
