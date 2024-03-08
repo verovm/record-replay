@@ -127,7 +127,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 			// check substate works for faithful replay
 			go func(block uint64, tx int, substate *research.Substate) {
-				err := checkFaithfulReplay(block, tx, substate)
+				err := CheckFaithfulReplay(block, tx, substate)
 				if err != nil {
 					panic(err)
 				}
@@ -208,9 +208,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	return applyTransaction(msg, config, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }
 
-// checkFaithfulReplay checks faithful transaction replay with the given substate
+// CheckFaithfulReplay checks faithful transaction replay with the given substate
 // and store json files of substates if execution results are different.
-func checkFaithfulReplay(block uint64, tx int, substate *research.Substate) error {
+func CheckFaithfulReplay(block uint64, tx int, substate *research.Substate) error {
 	// InputAlloc
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	statedb.LoadSubstate(substate)

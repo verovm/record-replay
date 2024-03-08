@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	rr03_research "github.com/ethereum/go-ethereum/cmd/substate-cli/rr03/research"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/research"
@@ -148,6 +149,13 @@ func upgrade(ctx *cli.Context) error {
 		s04.BlockEnv = upgradeBlockEnv(s03.Env)
 		s04.TxMessage = upgradeMessage(s03.Message, getBcTxType(block, tx))
 		s04.Result = upgradeResult(*s03.Result)
+
+		// Test faithful replay with upgraded substate
+		if err := core.CheckFaithfulReplay(block, tx, s04); err != nil {
+			return err
+		}
+
+		newDB.PutSubstate(block, tx, s04)
 
 		return nil
 	}
