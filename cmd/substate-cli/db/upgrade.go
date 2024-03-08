@@ -128,7 +128,7 @@ func upgrade(ctx *cli.Context) error {
 	getBcTxType := func(block uint64, tx int) *research.Substate_TxMessage_TxType {
 		txTypes := bcTxTypes[block]
 
-		if len(txTypes) < tx {
+		if tx >= len(txTypes) {
 			return nil
 		}
 
