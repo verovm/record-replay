@@ -145,7 +145,7 @@ func upgrade(ctx *cli.Context) error {
 		// Convert RLP to Substate
 		s04 := &research.Substate{}
 		s04.InputAlloc = upgradeAlloc(s03.InputAlloc)
-		s04.OutputAlloc = upgradeAlloc(s03.InputAlloc)
+		s04.OutputAlloc = upgradeAlloc(s03.OutputAlloc)
 		s04.BlockEnv = upgradeBlockEnv(s03.Env)
 		s04.TxMessage = upgradeMessage(s03.Message, getBcTxType(block, tx))
 		s04.Result = upgradeResult(*s03.Result)
