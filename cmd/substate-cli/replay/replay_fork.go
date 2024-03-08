@@ -150,7 +150,15 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 
 	result, err := core.ApplyMessage(evm, txMessage, gaspool)
 	if err != nil {
-		return err
+		erruw := errors.Unwrap(err)
+		if erruw == nil {
+			erruw = err
+		}
+		stat = &ReplayForkStat{
+			Count:  1,
+			ErrStr: fmt.Sprintf("%v", erruw),
+		}
+		return nil
 	}
 
 	if chainConfig.IsByzantium(blockNumber) {
