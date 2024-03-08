@@ -20,7 +20,7 @@ var CompactCommand = &cli.Command{
 		research.SubstateDirFlag,
 	},
 	Description: `
-The substate-cli db compact substate goleveldb instance - discarding deleted and
+The substate-cli db-compact substate goleveldb instance - discarding deleted and
 overwritten versions`,
 	Category: "db",
 }

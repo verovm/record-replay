@@ -27,7 +27,7 @@ var CloneCommand = &cli.Command{
 		},
 	},
 	Description: `
-substate-cli db clone creates a clone of substate DB of a given block segment.
+substate-cli db-clone creates a clone of substate DB of a given block segment.
 This loads a complete substate from src-path, then save it to dst path.
 The dst-path will always store substates in the latest encoding.
 `,
