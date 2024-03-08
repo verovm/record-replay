@@ -80,7 +80,9 @@ The directory is a single LevelDB instance, so you must read or write the substa
 The substate DB may be corrupted if you directly write or modify any files in the directory.
 Do not use LevelDB library for other languages (C++, Python, etc.) because they are incompatible with the goleveldb module.
 
-Since `rr0.4`, our recorder requires more memory to test faithful replay before write substates to substate DB. Therefore, it is recommended to have 32GB RAM for recodring.
+Since `rr0.4`, our recorder requires more memory to test faithful replay before write substates to substate DB.
+Therefore, it is recommended to have 32GB RAM for recodring.
+If you want to run without testing faithful replay, use `--skip-test-replay` option.
 
 
 
@@ -171,20 +173,12 @@ OPTIONS:
    
     --block-segment value         
           Single block segment (e.g. 1001, 1_001, 1_001-2_000, 1-2k, 1-2M)
-    --hard-fork value              (default: 12965000)
-          Hard-fork block number, won't change block number in Env for NUMBER
-          instruction
-              1: Frontier
-              1150000: Homestead
-              2463000: Tangerine Whistle
-            
-          2675000: Spurious Dragon
-              4370000: Byzantium
-              7280000: Constantinople +
-          Petersburg
-              9069000: Istanbul
-              12244000: Berlin
-              12965000: London
+    --hard-fork value              (default: 17034870)
+          Hard-fork block number, won't change block number in Env for NUMBER instruction,
+          1: Frontier, 1150000: Homestead, 2463000: Tangerine Whistle, 2675000: Spurious
+          Dragon, 4370000: Byzantium, 7280000: Constantinople + Petersburg, 9069000:
+          Istanbul, 12244000: Berlin, 12965000: London, 15537394: Paris (The Merge),
+          17034870: Shanghai
     --skip-call-txs                (default: false)
           Skip executing CALL transactions to accounts with contract bytecode
     --skip-create-txs              (default: false)

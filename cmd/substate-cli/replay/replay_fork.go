@@ -51,6 +51,8 @@ var HardForkName = map[int64]string{
 	9_069_000:  "Istanbul",
 	12_244_000: "Berlin",
 	12_965_000: "London",
+	15_537_394: "Paris (The Merge)",
+	17_034_870: "Shanghai",
 }
 
 func hardForkFlagDefault() int64 {
@@ -78,7 +80,7 @@ var HardForkFlag = &cli.Int64Flag{
 		}
 		sort.Slice(hardForkNums, func(i, j int) bool { return hardForkNums[i] < hardForkNums[j] })
 		for _, num64 := range hardForkNums {
-			s += fmt.Sprintf("\n\t  %v: %s", num64, HardForkName[num64])
+			s += fmt.Sprintf(", %v: %s", num64, HardForkName[num64])
 		}
 		return s
 	}(),
@@ -341,6 +343,11 @@ func replayForkAction(ctx *cli.Context) error {
 		*ReplayForkChainConfig = *tests.Forks["Berlin"]
 	case 12_965_000:
 		*ReplayForkChainConfig = *tests.Forks["London"]
+	case 15_537_394:
+		*ReplayForkChainConfig = *tests.Forks["Merge"]
+	case 17_034_870:
+		*ReplayForkChainConfig = *tests.Forks["Shanghai"]
+
 	}
 
 	research.SetSubstateFlags(ctx)

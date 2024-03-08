@@ -5,10 +5,6 @@
 ## Unstable release note
 
 ### TODOs
-* Add a new version of `substate-cli db-upgrade` command to convert rr0.3 RLP substates to rr0.4 Protobuf substates.
-  * Option 1: `db-upgrade` guesses tx types from the values of access lists and gas fees, as long as it guarantees faithful transaction replay.
-  * Option 2: `db-upgrade` reads tx types from exported blockchain files.
-* Update `substate-cli replay-fork` to support the latest hard forks in PoS era.
 * A new database backend to replace Goleveldb. Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation. A new DB backend should support in-database compression to keep billions of substates manageable. A new DB backend should show moderate write speed and fast read speed.
   * Option 1: Pebble. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language.
   * Option 2: Any embedded database implementation that supports Go and other major languages (C++, Java, Python) and in-database compression.
@@ -22,6 +18,7 @@
 With `--blockchain` option, `db-upgrade` reads tx types from exported blockchain files.
 Without `--blockchain`, `db-upgrade` guesses tx types from the values of access lists and gas fees, as long as it guarantees faithful transaction replay.
 * New `make record-replay` target for selectively faster compilation of recorder and replayer. Simpler targets `make rr` and `make`.
+* Add The Merge and Shanghai hard fork support to `substate-cli replay-fork`
 
 
 
