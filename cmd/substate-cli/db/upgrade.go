@@ -116,9 +116,12 @@ func upgrade(ctx *cli.Context) error {
 
 	// Read blockchain file and store tx types
 	bcPath := ctx.Path("blockchain")
-	bcTxTypes, err := readBcTxTypes(bcPath)
-	if err != nil {
-		panic(err)
+	bcTxTypes := make(map[uint64][]uint8)
+	if len(bcPath) > 0 {
+		bcTxTypes, err = readBcTxTypes(bcPath)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// getBcTxType returns nil if value not found in bcTxTypes
