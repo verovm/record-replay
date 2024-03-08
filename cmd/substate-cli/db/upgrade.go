@@ -40,6 +40,7 @@ var UpgradeCommand = &cli.Command{
 			Usage:    "Optional blockchain file from geth export for missing info",
 			Required: false,
 		},
+		core.SkipTestReplayFlag,
 	},
 	Description: `
 The substate db-upgrade command upgrade substate encoding from old rr0.3 RLP to
@@ -97,6 +98,8 @@ func readBcTxTypes(file string) (map[uint64][]uint8, error) {
 func upgrade(ctx *cli.Context) error {
 	var err error
 
+	core.SkipTestReplay = ctx.Bool(core.SkipTestReplayFlag.Name)
+
 	oldPath := ctx.Path("old-path")
 	oldBackend, err := rawdb.NewLevelDBDatabase(oldPath, 1024, 100, "srcDB", true)
 	if err != nil {
@@ -123,7 +126,6 @@ func upgrade(ctx *cli.Context) error {
 			panic(err)
 		}
 	}
-
 	// getBcTxType returns nil if value not found in bcTxTypes
 	getBcTxType := func(block uint64, tx int) *research.Substate_TxMessage_TxType {
 		txTypes := bcTxTypes[block]
@@ -154,7 +156,7 @@ func upgrade(ctx *cli.Context) error {
 		s04.Result = upgradeResult(*s03.Result)
 
 		// Test faithful replay with upgraded substate
-		if err := core.CheckFaithfulReplay(block, tx, s04); err != nil {
+		if err := core.TestReplay(block, tx, s04); err != nil {
 			return err
 		}
 

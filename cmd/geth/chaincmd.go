@@ -497,7 +497,8 @@ var recordSubstateCommand = func() *cli.Command {
 	c := &cli.Command{}
 	*c = *importCommand
 	c.Action = func(ctx *cli.Context) error {
-		core.RecordSubstateFlag = true
+		core.RecordSubstate = true
+		core.SkipTestReplay = ctx.Bool(core.SkipTestReplayFlag.Name)
 
 		research.SetSubstateFlags(ctx)
 		research.OpenSubstateDB()
@@ -509,6 +510,7 @@ var recordSubstateCommand = func() *cli.Command {
 	c.Usage = "(record-replay) Record substates during geth import"
 	c.Flags = flags.Merge(c.Flags, []cli.Flag{
 		research.SubstateDirFlag,
+		core.SkipTestReplayFlag,
 	})
 	return c
 }()

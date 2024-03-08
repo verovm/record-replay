@@ -31,12 +31,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/research"
+	cli "github.com/urfave/cli/v2"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
 // record-replay: record substates when true
-var RecordSubstateFlag = false
+var RecordSubstate = false
 
 // StateProcessor is a basic Processor, which takes care of transitioning
 // state from one point to another.
@@ -79,7 +80,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 
 		// record-replay: Finalise all DAO accounts, don't save them in substate
-		if RecordSubstateFlag {
+		if RecordSubstate {
 			if config := p.config; config.IsByzantium(header.Number) {
 				statedb.Finalise(true)
 			} else {
@@ -108,7 +109,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 
 		// record-replay: save tx substate into DBs, merge block hashes to env
-		if RecordSubstateFlag {
+		if RecordSubstate {
 			substate := &research.Substate{}
 			statedb.SaveSubstate(substate)
 
@@ -127,7 +128,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 			// check substate works for faithful replay
 			go func(block uint64, tx int, substate *research.Substate) {
-				err := CheckFaithfulReplay(block, tx, substate)
+				err := TestReplay(block, tx, substate)
 				if err != nil {
 					panic(err)
 				}
@@ -208,9 +209,24 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	return applyTransaction(msg, config, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }
 
-// CheckFaithfulReplay checks faithful transaction replay with the given substate
+// record-replay: --skip-test-replay flag
+var (
+	SkipTestReplayFlag = &cli.BoolFlag{
+		Name:  "skip-test-replay",
+		Usage: "Skip checking faithful transaction replay tests",
+		Value: false,
+	}
+	SkipTestReplay = SkipTestReplayFlag.Value
+)
+
+// TestReplay checks faithful transaction replay with the given substate
 // and store json files of substates if execution results are different.
-func CheckFaithfulReplay(block uint64, tx int, substate *research.Substate) error {
+// This function immediately returns nil if SkipTestReplay is true.
+func TestReplay(block uint64, tx int, substate *research.Substate) error {
+	if SkipTestReplay {
+		return nil
+	}
+
 	// InputAlloc
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	statedb.LoadSubstate(substate)
