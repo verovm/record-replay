@@ -27,17 +27,17 @@ var UpgradeCommand = &cli.Command{
 		research.BlockSegmentFlag,
 		&cli.PathFlag{
 			Name:     "old-path",
-			Usage:    "rr0.3.substate.ethereum",
+			Usage:    "Old rr0.3 substate DB path, e.g., rr0.3.substate.ethereum)",
 			Required: true,
 		},
 		&cli.PathFlag{
 			Name:     "new-path",
-			Usage:    "rr0.4.substate.ethereum",
+			Usage:    "New rr0.4 substate DB path, e.g., rr0.4.substate.ethereum)",
 			Required: true,
 		},
 		&cli.PathFlag{
 			Name:     "blockchain",
-			Usage:    "ethereum.blockchain",
+			Usage:    "Optional blockchain file from geth export for missing info",
 			Required: false,
 		},
 	},
