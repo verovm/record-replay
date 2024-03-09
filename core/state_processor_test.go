@@ -433,14 +433,15 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil))
 }
 
+// Test_122475_1 to debug substate replay quickly with go test
 func Test_122475_1(t *testing.T) {
 	b, err := os.ReadFile("record_substate_122475_1.json")
 	if err != nil {
-		panic(err)
+		t.Skipf("unable to read record_substate_122475_1.json")
 	}
 	x := &research.Substate{}
 	protojson.Unmarshal(b, x)
-	err = checkFaithfulReplay(122475, 1, x)
+	err = TestReplay(122475, 1, x)
 	if err != nil {
 		panic(err)
 	}
