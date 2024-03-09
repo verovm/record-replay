@@ -24,8 +24,10 @@ const (
 type Substate_TxMessage_TxType int32
 
 const (
-	Substate_TxMessage_TXTYPE_LEGACY     Substate_TxMessage_TxType = 0
+	Substate_TxMessage_TXTYPE_LEGACY Substate_TxMessage_TxType = 0
+	// Berlin hard fork introduced optional access list
 	Substate_TxMessage_TXTYPE_ACCESSLIST Substate_TxMessage_TxType = 1
+	// London hard fork introduced optional dynamic fee market
 	Substate_TxMessage_TXTYPE_DYNAMICFEE Substate_TxMessage_TxType = 2
 )
 
@@ -377,8 +379,10 @@ type Substate_BlockEnv struct {
 	Number      *uint64                             `protobuf:"varint,4,req,name=number" json:"number,omitempty"`
 	Timestamp   *uint64                             `protobuf:"varint,5,req,name=timestamp" json:"timestamp,omitempty"`
 	BlockHashes []*Substate_BlockEnv_BlockHashEntry `protobuf:"bytes,6,rep,name=block_hashes,json=blockHashes" json:"block_hashes,omitempty"`
-	BaseFee     *wrapperspb.BytesValue              `protobuf:"bytes,7,opt,name=base_fee,json=baseFee" json:"base_fee,omitempty"`
-	Random      *wrapperspb.BytesValue              `protobuf:"bytes,8,opt,name=random" json:"random,omitempty"`
+	// London hard fork introduced BASEFEE instruction
+	BaseFee *wrapperspb.BytesValue `protobuf:"bytes,7,opt,name=base_fee,json=baseFee" json:"base_fee,omitempty"`
+	// The Merge hard fork replaced DIFFICULTY with PREVRANDAO
+	Random *wrapperspb.BytesValue `protobuf:"bytes,8,opt,name=random" json:"random,omitempty"`
 }
 
 func (x *Substate_BlockEnv) Reset() {
@@ -474,12 +478,13 @@ type Substate_TxMessage struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Nonce    *uint64                `protobuf:"varint,1,req,name=nonce" json:"nonce,omitempty"`
-	GasPrice []byte                 `protobuf:"bytes,2,req,name=gas_price,json=gasPrice" json:"gas_price,omitempty"`
-	Gas      *uint64                `protobuf:"varint,3,req,name=gas" json:"gas,omitempty"`
-	From     []byte                 `protobuf:"bytes,4,req,name=from" json:"from,omitempty"`
-	To       *wrapperspb.BytesValue `protobuf:"bytes,5,opt,name=to" json:"to,omitempty"`
-	Value    []byte                 `protobuf:"bytes,6,req,name=value" json:"value,omitempty"`
+	Nonce    *uint64 `protobuf:"varint,1,req,name=nonce" json:"nonce,omitempty"`
+	GasPrice []byte  `protobuf:"bytes,2,req,name=gas_price,json=gasPrice" json:"gas_price,omitempty"`
+	Gas      *uint64 `protobuf:"varint,3,req,name=gas" json:"gas,omitempty"`
+	From     []byte  `protobuf:"bytes,4,req,name=from" json:"from,omitempty"`
+	// TxMessage.to is nil for contract creation
+	To    *wrapperspb.BytesValue `protobuf:"bytes,5,opt,name=to" json:"to,omitempty"`
+	Value []byte                 `protobuf:"bytes,6,req,name=value" json:"value,omitempty"`
 	// Types that are assignable to Input:
 	//
 	//	*Substate_TxMessage_Data
@@ -487,7 +492,8 @@ type Substate_TxMessage struct {
 	Input      isSubstate_TxMessage_Input            `protobuf_oneof:"input"`
 	TxType     *Substate_TxMessage_TxType            `protobuf:"varint,9,req,name=tx_type,json=txType,enum=research.Substate_TxMessage_TxType" json:"tx_type,omitempty"`
 	AccessList []*Substate_TxMessage_AccessListEntry `protobuf:"bytes,10,rep,name=access_list,json=accessList" json:"access_list,omitempty"`
-	// GasFeeCap, GasTipCap for TXTYPE_DYNAMICFEE
+	// GasFeeCap, GasTipCap from TXTYPE_DYNAMICFEE
+	// nil before TXTYPE_DYNAMICFEE
 	GasFeeCap *wrapperspb.BytesValue `protobuf:"bytes,11,opt,name=gas_fee_cap,json=gasFeeCap" json:"gas_fee_cap,omitempty"`
 	GasTipCap *wrapperspb.BytesValue `protobuf:"bytes,12,opt,name=gas_tip_cap,json=gasTipCap" json:"gas_tip_cap,omitempty"`
 }
@@ -812,7 +818,8 @@ func (x *Substate_BlockEnv_BlockHashEntry) GetValue() []byte {
 	return nil
 }
 
-// AccessList for TXTYPE_ACCESSLIST, TXTYPE_DYNAMICFEE
+// AccessList from TXTYPE_ACCESSLIST
+// nil before TXTYPE_ACCESSLIST
 type Substate_TxMessage_AccessListEntry struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

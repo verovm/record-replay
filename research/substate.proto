@@ -45,7 +45,9 @@ message Substate {
             required bytes value = 2;
         }
         repeated BlockHashEntry block_hashes = 6;
+        // London hard fork introduced BASEFEE instruction
         optional google.protobuf.BytesValue base_fee = 7;
+        // The Merge hard fork replaced DIFFICULTY with PREVRANDAO
         optional google.protobuf.BytesValue random = 8;
     }
     required BlockEnv block_env = 3;
@@ -56,6 +58,7 @@ message Substate {
         required uint64 gas = 3;
 
         required bytes from = 4;
+        // TxMessage.to is nil for contract creation
         optional google.protobuf.BytesValue to = 5;
         required bytes value = 6;
 
@@ -66,19 +69,23 @@ message Substate {
 
         enum TxType {
             TXTYPE_LEGACY = 0;
+            // Berlin hard fork introduced optional access list
             TXTYPE_ACCESSLIST = 1;
+            // London hard fork introduced optional dynamic fee market
             TXTYPE_DYNAMICFEE = 2;
         }
         required TxType tx_type = 9;
 
-        // AccessList for TXTYPE_ACCESSLIST, TXTYPE_DYNAMICFEE
+        // AccessList from TXTYPE_ACCESSLIST
+        // nil before TXTYPE_ACCESSLIST
         message AccessListEntry {
             required bytes address = 1;
             repeated bytes storage_keys = 2;
         }
         repeated AccessListEntry access_list = 10;
 
-        // GasFeeCap, GasTipCap for TXTYPE_DYNAMICFEE
+        // GasFeeCap, GasTipCap from TXTYPE_DYNAMICFEE
+        // nil before TXTYPE_DYNAMICFEE
         optional google.protobuf.BytesValue gas_fee_cap = 11;
         optional google.protobuf.BytesValue gas_tip_cap = 12;
     }
