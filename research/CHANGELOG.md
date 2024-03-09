@@ -8,7 +8,7 @@
 * A new database backend to replace Goleveldb. Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation. A new DB backend should support in-database compression to keep billions of substates manageable. A new DB backend should show moderate write speed and fast read speed.
   * Option 1: Pebble. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language.
   * Option 2: Any embedded database implementation that supports Go and other major languages (C++, Java, Python) and in-database compression.
-  * Option 3: Any external/remote database with SQL or GraphQL query support. Geth has `--remotedb` option to access a remote read-only key-value database. Geth's [remotedb](https://pkg.go.dev/github.com/ethereum/go-ethereum/ethdb/remotedb) module uses `debug_dbGet` method. The main purpose of remotedb is debugging, not performance or scalability.
+  * Option 3: Any external/remote database with SQL, REST API, or GraphQL query support. Geth has `--remotedb` option to access a remote read-only key-value database. Geth's [remotedb](https://pkg.go.dev/github.com/ethereum/go-ethereum/ethdb/remotedb) module uses `debug_dbGet` method. The main purpose of remotedb is debugging, not performance or scalability.
 * Prepare for upcoming hard forks in 2024.
   * New hard forks require the latest Geth v1.13. The current record-replay is based on Geth v1.11.6 because Geth v1.12 has a problem importing PoW blocks. We must double-check whether Geth v1.13 can process PoW blocks. Otherwise, we need to use Geth v1.11 for PoW blocks and Geth 1.13 for PoS blocks in substate recording.
 
@@ -18,7 +18,10 @@
 With `--blockchain` option, `db-upgrade` reads tx types from exported blockchain files.
 Without `--blockchain`, `db-upgrade` guesses tx types from the values of access lists and gas fees, as long as it guarantees faithful transaction replay.
 * New `make record-replay` target for selectively faster compilation of recorder and replayer. Simpler targets `make rr` and `make`.
-* Add The Merge and Shanghai hard fork support to `substate-cli replay-fork`
+* Update `substate-cli replay-fork` to support The Merge and Shanghai hard forks.
+The Merge hard fork replaces `DIFFICULTY` instruction with `PREVRANDAO` instruction.
+`PREVRANDAO` requires `BlockContext.Random` but it is always `nil` for the pre-merge blocks.
+`substate-cli replay-fork` assigns `0` to `BlockContext.Random` for those pre-merge blocks.
 
 
 
