@@ -10,7 +10,7 @@
   * Option 2: Any embedded database implementation that supports Go and other major languages (C++, Java, Python) and in-database compression.
   * Option 3: Any external/remote database with SQL, REST API, or GraphQL query support. Geth has `--remotedb` option to access a remote read-only key-value database. Geth's [remotedb](https://pkg.go.dev/github.com/ethereum/go-ethereum/ethdb/remotedb) module uses `debug_dbGet` method. The main purpose of remotedb is debugging, not performance or scalability.
 * Prepare for upcoming hard forks in 2024.
-  * New hard forks require the latest Geth v1.13. The current record-replay is based on Geth v1.11.6 because Geth v1.12 has a problem importing PoW blocks. We must double-check whether Geth v1.13 can process PoW blocks. Otherwise, we need to use Geth v1.11 for PoW blocks and Geth 1.13 for PoS blocks in substate recording.
+  * Confirmed that Geth v1.13.14 supports Cancun hard fork, and Geth v1.13.14 can import PoW blocks.
 
 ### DONE
 * Add CHANGELOG.md
