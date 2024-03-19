@@ -39,7 +39,7 @@ and check output consistency for faithful replaying.`,
 // replayTask replays a transaction substate
 func replayTask(block uint64, tx int, substate *research.Substate, taskPool *research.SubstateTaskPool) error {
 	// InputAlloc
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	statedb.LoadSubstate(substate)
 
 	// BlockEnv

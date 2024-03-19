@@ -232,7 +232,7 @@ func TestReplay(block uint64, tx int, substate *research.Substate) error {
 	}
 
 	// InputAlloc
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	statedb.LoadSubstate(substate)
 
 	// BlockEnv
