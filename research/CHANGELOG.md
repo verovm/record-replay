@@ -5,12 +5,24 @@
 ## Unstable release note
 
 ### TODOs
-* A new database backend to replace Goleveldb. Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation. A new DB backend should support in-database compression to keep billions of substates manageable. A new DB backend should show moderate write speed and fast read speed.
-  * Option 1: Pebble. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language.
-  * Option 2: Any embedded database implementation that supports Go and other major languages (C++, Java, Python) and in-database compression.
-  * Option 3: Any external/remote database with SQL, REST API, or GraphQL query support. Geth has `--remotedb` option to access a remote read-only key-value database. Geth's [remotedb](https://pkg.go.dev/github.com/ethereum/go-ethereum/ethdb/remotedb) module uses `debug_dbGet` method. The main purpose of remotedb is debugging, not performance or scalability.
 * Prepare for upcoming hard forks in 2024.
   * Confirmed that Geth v1.13.14 supports Cancun hard fork, and Geth v1.13.14 can import PoW blocks.
+* New database backends to replace Goleveldb.
+  * Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation.
+  * Option 1: Embedded KVDB. The main advantage is straightforward migration from Goleveldb to a new KVDB backend. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language.
+  * Option 2: RDBMS and SQL. The main advantage is portability and compatibility because major languages have SQL libraries. If a new RDBMS backend supports concurrency very well, multiple recorders and/or replayers can run in parallel on multicore and/or distributed systems. Embedded RDBMS such as SQLite3, or remote RDBMS such as MySQL, MariaDB, and PostgreSQL.
+  * Option 3: a DB server with support of public APIs such as REST, GraphQL, gRPC, etc.
+* Introduce new `--substate-db` option which receives `"backend,URI"` parameter. Deprecate `--substatedir` flag in favor of the new `--substate-db`. For example:
+```
+--substate-db "goleveldb,substate.ethereum"
+--substate-db "pebble,/path/to/substatedir"
+--substate-db "sqlite3,file://path/to/db.sqlite3"
+--substate-db "mysql,root:pwd@tcp(127.0.0.1:3306)/testdb"
+--substate-db "postgres,user=pqgotest dbname=pqgotest sslmode=verify-full"
+```
+* New database layout to separate deployed code for accounts and initialization code from tx messages.
+  * For KVDB backends, use a key `"1i"+code_hash` for initialization code.
+  * For RDBMS, use `codes` table for deployed code and `init_codes` for init code.
 
 ### DONE
 * Add CHANGELOG.md
