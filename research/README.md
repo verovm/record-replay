@@ -201,12 +201,12 @@ OPTIONS:
 To guarantee faithful replay after upgrading, `db-upgrade` replays the upgraded substates before write them to the new substate DB.
 `--blockchain` option can be used to supplement tx types which are required for rr0.4 substates but missing in rr0.3 substates.
 ```
-./substate-cli db-upgrade --old-path rr0.3.substate.ethereum --new-path rr0.4.substate.ethereum --blockchain 0-1M.blockchain --blcok-segment 0-1M --workers 0
+./substate-cli db-upgrade --old-path rr0.3.substate.ethereum --new-path rr0.4.substate.ethereum --blockchain 0-1M.blockchain --block-segment 0-1M --workers 0
 ```
 
 If `--blockchain` is not provided, then `substate db-upgrade` will guess tx types based on access lists and dynamic gas fees.
 ```
-./substate-cli db-upgrade --old-path rr0.3.substate.ethereum --new-path rr0.4.substate.ethereum --blcok-segment 0-1M --workers 0
+./substate-cli db-upgrade --old-path rr0.3.substate.ethereum --new-path rr0.4.substate.ethereum --block-segment 0-1M --workers 0
 ```
 
 ### `db-clone`
