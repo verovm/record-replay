@@ -25,7 +25,14 @@
   * For RDBMS, use `codes` table for deployed code and `init_codes` for init code.
 
 ### DONE
-* Add CHANGELOG.md
+
+
+
+## record-replay 0.4.1 release note
+**Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.0...rr0.4.1
+
+### Updates
+* Add [CHANGELOG.md](/research/CHANGELOG.md)
 * Add a new version of `substate-cli db-upgrade` command to convert rr0.3 RLP substates to rr0.4 Protobuf substates.
 With `--blockchain` option, `db-upgrade` reads tx types from exported blockchain files.
 Without `--blockchain`, `db-upgrade` guesses tx types from the values of access lists and gas fees, as long as it guarantees faithful transaction replay.
