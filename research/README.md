@@ -174,11 +174,11 @@ OPTIONS:
     --block-segment value         
           Single block segment (e.g. 1001, 1_001, 1_001-2_000, 1-2k, 1-2M)
     --hard-fork value              (default: 17034870)
-          Hard-fork block number, won't change block number in Env for NUMBER instruction,
-          1: Frontier, 1150000: Homestead, 2463000: Tangerine Whistle, 2675000: Spurious
-          Dragon, 4370000: Byzantium, 7280000: Constantinople + Petersburg, 9069000:
-          Istanbul, 12244000: Berlin, 12965000: London, 15537394: Paris (The Merge),
-          17034870: Shanghai
+          Hard-fork block number, won't change block number in BlockEnv for NUMBER
+          instruction, 1: Frontier, 1150000: Homestead, 2463000: Tangerine Whistle,
+          2675000: Spurious Dragon, 4370000: Byzantium, 7280000: Constantinople +
+          Petersburg, 9069000: Istanbul, 12244000: Berlin, 12965000: London, 15537394:
+          Paris (The Merge), 17034870: Shanghai
     --skip-call-txs                (default: false)
           Skip executing CALL transactions to accounts with contract bytecode
     --skip-create-txs              (default: false)
