@@ -602,7 +602,7 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 			s.ResearchPreAlloc[addr] = &research.Substate_Account{
 				Nonce:    proto.Uint64(obj.Nonce()),
 				Balance:  research.BigIntToBytes(obj.Balance()),
-				Contract: &research.Substate_Account_Code{Code: obj.code},
+				Contract: &research.Substate_Account_Code{Code: obj.Code()},
 			}
 		}
 
@@ -996,7 +996,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 				sa := &research.Substate_Account{
 					Nonce:    proto.Uint64(obj.Nonce()),
 					Balance:  research.BigIntToBytes(obj.Balance()),
-					Contract: &research.Substate_Account_Code{Code: obj.code},
+					Contract: &research.Substate_Account_Code{Code: obj.Code()},
 				}
 				for key := range obj.ResearchTouched {
 					// GetState to get modified values
