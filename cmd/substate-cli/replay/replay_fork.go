@@ -53,6 +53,7 @@ var HardForkName = map[int64]string{
 	12_965_000: "London",
 	15_537_394: "Paris (The Merge)",
 	17_034_870: "Shanghai",
+	19_426_587: "Cancun",
 }
 
 func hardForkFlagDefault() int64 {
@@ -360,6 +361,8 @@ func replayForkAction(ctx *cli.Context) error {
 		*ReplayForkChainConfig = *tests.Forks["Merge"]
 	case 17_034_870:
 		*ReplayForkChainConfig = *tests.Forks["Shanghai"]
+	case 19_426_587:
+		*ReplayForkChainConfig = *tests.Forks["Cancun"]
 
 	}
 
