@@ -60,7 +60,7 @@ func NewSubstateAllocRLP(alloc SubstateAlloc) SubstateAllocRLP {
 		allocRLP.Addresses = append(allocRLP.Addresses, addr)
 	}
 	sort.Slice(allocRLP.Addresses, func(i, j int) bool {
-		return allocRLP.Addresses[i].Hash().Big().Cmp(allocRLP.Addresses[j].Hash().Big()) < 0
+		return allocRLP.Addresses[i].Big().Cmp(allocRLP.Addresses[j].Big()) < 0
 	})
 
 	for _, addr := range allocRLP.Addresses {

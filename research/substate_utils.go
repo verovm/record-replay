@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -93,6 +94,22 @@ func BytesToBigInt(b []byte) *big.Int {
 		return nil
 	}
 	return new(big.Int).SetBytes(b)
+}
+
+// Uint256ToBytes in research package strictly returns nil if x is nil
+func Uint256ToBytes(x *uint256.Int) []byte {
+	if x == nil {
+		return nil
+	}
+	return x.ToBig().Bytes()
+}
+
+// BytesToUint256 in research package strictly returns nil if b is nil
+func BytesToUint256(b []byte) *uint256.Int {
+	if b == nil {
+		return nil
+	}
+	return uint256.MustFromBig(BytesToBigInt(b))
 }
 
 // BigIntToBytesValue in research package strictly returns nil if x is nil

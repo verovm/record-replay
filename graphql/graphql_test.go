@@ -139,7 +139,7 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 		// should return `estimateGas` as decimal
 		{
 			body: `{"query": "{block{ estimateGas(data:{}) }}"}`,
-			want: `{"data":{"block":{"estimateGas":"0xcf08"}}}`,
+			want: `{"data":{"block":{"estimateGas":"0xd221"}}}`,
 			code: 200,
 		},
 		// should return `status` as decimal
@@ -147,6 +147,11 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 			body: `{"query": "{block {number call (data : {from : \"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b\", to: \"0x6295ee1b4f6dd65047762f924ecd367c17eabf8f\", data :\"0x12a7b914\"}){data status}}}"}`,
 			want: `{"data":{"block":{"number":"0xa","call":{"data":"0x","status":"0x1"}}}}`,
 			code: 200,
+		},
+		{
+			body: `{"query": "{blocks {number}}"}`,
+			want: `{"errors":[{"message":"from block number must be specified","path":["blocks"]}],"data":null}`,
+			code: 400,
 		},
 	} {
 		resp, err := http.Post(fmt.Sprintf("%s/graphql", stack.HTTPEndpoint()), "application/json", strings.NewReader(tt.body))
@@ -163,6 +168,9 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 		}
 		if tt.code != resp.StatusCode {
 			t.Errorf("testcase %d %s,\nwrong statuscode, have: %v, want: %v", i, tt.body, resp.StatusCode, tt.code)
+		}
+		if ctype := resp.Header.Get("Content-Type"); ctype != "application/json" {
+			t.Errorf("testcase %d \nwrong Content-Type, have: %v, want: %v", i, ctype, "application/json")
 		}
 	}
 }
@@ -181,7 +189,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 		Config:     params.AllEthashProtocolChanges,
 		GasLimit:   11500000,
 		Difficulty: big.NewInt(1048576),
-		Alloc: core.GenesisAlloc{
+		Alloc: types.GenesisAlloc{
 			address: {Balance: funds},
 			// The address 0xdad sloads 0x00 and 0x01
 			dad: {
@@ -278,7 +286,7 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 			Config:     params.AllEthashProtocolChanges,
 			GasLimit:   11500000,
 			Difficulty: big.NewInt(1048576),
-			Alloc: core.GenesisAlloc{
+			Alloc: types.GenesisAlloc{
 				addr: {Balance: big.NewInt(params.Ether)},
 				dad: {
 					// LOG0(0, 0), LOG0(0, 0), RETURN(0, 0)
@@ -371,7 +379,7 @@ func TestWithdrawals(t *testing.T) {
 			Config:     params.AllEthashProtocolChanges,
 			GasLimit:   11500000,
 			Difficulty: common.Big1,
-			Alloc: core.GenesisAlloc{
+			Alloc: types.GenesisAlloc{
 				addr: {Balance: big.NewInt(params.Ether)},
 			},
 		}
