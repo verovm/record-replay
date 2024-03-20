@@ -234,7 +234,8 @@ func (pool *SubstateTaskPool) ExecuteSegment(segment *BlockSegment) error {
 
 		duration := time.Since(start) + 1*time.Nanosecond
 		sec := duration.Seconds()
-		if block == segment.Last ||
+		if block == segment.Last || block%1000000 == 0 ||
+			(block%100000 == 0 && sec > lastSec+1) ||
 			(block%10000 == 0 && sec > lastSec+5) ||
 			(block%1000 == 0 && sec > lastSec+10) ||
 			(block%100 == 0 && sec > lastSec+20) ||
