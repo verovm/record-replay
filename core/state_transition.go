@@ -531,13 +531,20 @@ func (m *Message) SaveSubstate(substate *research.Substate) {
 		t.TxType = research.Substate_TxMessage_TXTYPE_ACCESSLIST.Enum()
 	case types.DynamicFeeTxType:
 		t.TxType = research.Substate_TxMessage_TXTYPE_DYNAMICFEE.Enum()
+	case types.BlobTxType:
+		t.TxType = research.Substate_TxMessage_TXTYPE_BLOB.Enum()
 	default:
 		panic(fmt.Errorf("tx type %v is not supported", x))
 	}
 
+	// Save optional access list
 	switch *t.TxType {
+	case research.Substate_TxMessage_TXTYPE_LEGACY:
+		t.AccessList = nil
+
 	case research.Substate_TxMessage_TXTYPE_ACCESSLIST,
-		research.Substate_TxMessage_TXTYPE_DYNAMICFEE:
+		research.Substate_TxMessage_TXTYPE_DYNAMICFEE,
+		research.Substate_TxMessage_TXTYPE_BLOB:
 		t.AccessList = make([]*research.Substate_TxMessage_AccessListEntry, 0, len(m.AccessList))
 		for _, tuple := range m.AccessList {
 			entry := &research.Substate_TxMessage_AccessListEntry{}
@@ -549,10 +556,32 @@ func (m *Message) SaveSubstate(substate *research.Substate) {
 		}
 	}
 
+	// Save optional dynamic fee market
 	switch *t.TxType {
-	case research.Substate_TxMessage_TXTYPE_DYNAMICFEE:
+	case research.Substate_TxMessage_TXTYPE_LEGACY,
+		research.Substate_TxMessage_TXTYPE_ACCESSLIST:
+		t.GasFeeCap = nil
+		t.GasTipCap = nil
+
+	case research.Substate_TxMessage_TXTYPE_DYNAMICFEE,
+		research.Substate_TxMessage_TXTYPE_BLOB:
 		t.GasFeeCap = research.BigIntToBytesValue(m.GasFeeCap)
 		t.GasTipCap = research.BigIntToBytesValue(m.GasTipCap)
+	}
+
+	// Save optional tx blob
+	switch *t.TxType {
+	case research.Substate_TxMessage_TXTYPE_LEGACY,
+		research.Substate_TxMessage_TXTYPE_ACCESSLIST,
+		research.Substate_TxMessage_TXTYPE_DYNAMICFEE:
+		t.BlobGasFeeCap = nil
+		t.BlobHashes = nil
+
+	case research.Substate_TxMessage_TXTYPE_BLOB:
+		t.BlobGasFeeCap = research.BigIntToBytesValue(m.BlobGasFeeCap)
+		for _, bh := range m.BlobHashes {
+			t.BlobHashes = append(t.BlobHashes, research.HashToBytes(&bh))
+		}
 	}
 
 	substate.TxMessage = t
@@ -583,12 +612,20 @@ func (m *Message) LoadSubstate(substate *research.Substate) {
 		m.ResearchTxType = types.AccessListTxType
 	case research.Substate_TxMessage_TXTYPE_DYNAMICFEE:
 		m.ResearchTxType = types.DynamicFeeTxType
+	case research.Substate_TxMessage_TXTYPE_BLOB:
+		m.ResearchTxType = types.BlobTxType
 	default:
 		panic(fmt.Errorf("tx type %v is not supported", x))
 	}
 
+	// Load optional access list
 	switch m.ResearchTxType {
-	case types.AccessListTxType, types.DynamicFeeTxType:
+	case types.LegacyTxType:
+		m.AccessList = nil
+
+	case types.AccessListTxType,
+		types.DynamicFeeTxType,
+		types.BlobTxType:
 		m.AccessList = make(types.AccessList, 0, len(t.AccessList))
 		for _, entry := range t.AccessList {
 			tuple := types.AccessTuple{
@@ -601,12 +638,31 @@ func (m *Message) LoadSubstate(substate *research.Substate) {
 		}
 	}
 
+	// Load optional dynamic fee market
 	switch m.ResearchTxType {
-	case types.LegacyTxType, types.AccessListTxType:
+	case types.LegacyTxType,
+		types.AccessListTxType:
 		m.GasFeeCap = m.GasPrice
 		m.GasTipCap = m.GasPrice
-	case types.DynamicFeeTxType:
+
+	case types.DynamicFeeTxType,
+		types.BlobTxType:
 		m.GasFeeCap = research.BytesValueToBigInt(t.GasFeeCap)
 		m.GasTipCap = research.BytesValueToBigInt(t.GasTipCap)
+	}
+
+	// Load optional dynamic tx blob
+	switch m.ResearchTxType {
+	case types.LegacyTxType,
+		types.AccessListTxType,
+		types.DynamicFeeTxType:
+		m.BlobGasFeeCap = nil
+		m.BlobHashes = nil
+
+	case types.BlobTxType:
+		m.BlobGasFeeCap = research.BytesValueToBigInt(t.BlobGasFeeCap)
+		for _, bh := range t.BlobHashes {
+			m.BlobHashes = append(m.BlobHashes, *research.BytesToHash(bh))
+		}
 	}
 }

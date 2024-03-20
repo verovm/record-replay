@@ -25,6 +25,8 @@
   * For RDBMS, use `codes` table for deployed code and `init_codes` for init code.
 
 ### DONE
+* Support hard fork Cancun (`19_426_587`)
+* Based on Geth v1.13.14
 
 
 

@@ -1,7 +1,8 @@
 syntax = "proto2";
 package research;
 
-// use wrapper for optional values
+// For a single optional bytes, use `optional BytesValue`
+// For an optional list of bytes, use `repeated bytes`
 import "google/protobuf/wrappers.proto";
 
 option go_package = "../research";
@@ -49,6 +50,8 @@ message Substate {
         optional google.protobuf.BytesValue base_fee = 7;
         // The Merge hard fork replaced DIFFICULTY with PREVRANDAO
         optional google.protobuf.BytesValue random = 8;
+        // Cancun hard fork introduced BLOBBASEFEE instruction
+        optional google.protobuf.BytesValue blob_base_fee = 9;
     }
     required BlockEnv block_env = 3;
 
@@ -73,11 +76,13 @@ message Substate {
             TXTYPE_ACCESSLIST = 1;
             // London hard fork introduced optional dynamic fee market
             TXTYPE_DYNAMICFEE = 2;
+            // Cancun hard fork introduced optional tx blob
+            TXTYPE_BLOB = 3;
         }
         required TxType tx_type = 9;
 
         // AccessList from TXTYPE_ACCESSLIST
-        // nil before TXTYPE_ACCESSLIST
+        // nil for tx types prior to TXTYPE_ACCESSLIST
         message AccessListEntry {
             required bytes address = 1;
             repeated bytes storage_keys = 2;
@@ -85,9 +90,14 @@ message Substate {
         repeated AccessListEntry access_list = 10;
 
         // GasFeeCap, GasTipCap from TXTYPE_DYNAMICFEE
-        // nil before TXTYPE_DYNAMICFEE
+        // nil for tx types prior to TXTYPE_DYNAMICFEE
         optional google.protobuf.BytesValue gas_fee_cap = 11;
         optional google.protobuf.BytesValue gas_tip_cap = 12;
+
+        // BlobFeeCap, BlobHashes, optional Sidecar from TXTYPE_BLOB
+        // nil for tx types prior to TXTYPE_BLOB
+        optional google.protobuf.BytesValue blob_gas_fee_cap = 13;
+        repeated bytes blob_hashes = 14;
     }
     required TxMessage tx_message = 4;
 
