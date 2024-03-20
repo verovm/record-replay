@@ -246,7 +246,7 @@ func ProcessBeaconBlockRoot(beaconRoot common.Hash, vmenv *vm.EVM, statedb *stat
 var (
 	SkipCheckReplayFlag = &cli.BoolFlag{
 		Name:  "skip-check-replay",
-		Usage: "Skip checking faithful transaction replay tests",
+		Usage: "Skip checking faithful transaction replay",
 		Value: false,
 	}
 	SkipCheckReplay = SkipCheckReplayFlag.Value
