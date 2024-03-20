@@ -26,7 +26,7 @@
 **Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.1...rr0.5.0
 
 ### Updates
-* Based on Geth v1.13.14.
+* Based on Geth v1.13.14. https://github.com/verovm/record-replay/compare/geth-v1.13.14...rr0.5.0
 * Support hard fork Cancun (`19_426_587`).
 
 ### Important notes
