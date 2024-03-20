@@ -139,7 +139,7 @@ func (pool *SubstateTaskPool) ExecuteSegment(segment *BlockSegment) error {
 		nb, nt := atomic.LoadInt64(&totalNumBlock), atomic.LoadInt64(&totalNumTx)
 		blkPerSec := float64(nb) / sec
 		txPerSec := float64(nt) / sec
-		fmt.Printf("%s: block segment = %v %v\n", pool.Name, segment.First, segment.Last)
+		fmt.Printf("%s: block segment = %v-%v\n", pool.Name, segment.First, segment.Last)
 		fmt.Printf("%s: total #block = %v\n", pool.Name, nb)
 		fmt.Printf("%s: total #tx    = %v\n", pool.Name, nt)
 		fmt.Printf("%s: %.2f blk/s, %.2f tx/s\n", pool.Name, blkPerSec, txPerSec)

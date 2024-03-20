@@ -140,7 +140,7 @@ func replayAction(ctx *cli.Context) error {
 
 	segment, err := research.ParseBlockSegment(ctx.String(research.BlockSegmentFlag.Name))
 	if err != nil {
-		return fmt.Errorf("substate-cli replay: error parsing block segment: %s", err)
+		return fmt.Errorf("substate-cli replay: error parsing block segment: %w", err)
 	}
 
 	err = taskPool.ExecuteSegment(segment)
