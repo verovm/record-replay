@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -1198,7 +1197,7 @@ func TestStateDBSaveSubstateOutputAlloc(t *testing.T) {
 	addr := common.HexToAddress("0x1")
 	statedb.SetCode(addr, []byte{2})
 	statedb.SetNonce(addr, 3)
-	statedb.SetBalance(addr, big.NewInt(4))
+	statedb.SetBalance(addr, uint256.NewInt(4))
 	statedb.SetState(addr, common.HexToHash("0x5"), common.HexToHash("0x6"))
 	statedb.Commit(1, false)
 
