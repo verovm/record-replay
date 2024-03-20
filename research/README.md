@@ -84,7 +84,7 @@ Our recorder requires more memory to test faithful replay before write substates
 Therefore, it is recommended to have 32GB RAM for recodring.
 If you want to run without testing faithful replay, use `--skip-check-replay` option.
 
-Our `geth record-substate` command is based on `geth import` full sync. You may want to try different options of `geth import` such as `--db.engine` and `--state.scheme` to improve full sync speed and size.
+Our `geth record-substate` command is based on `geth import` full sync. You may want to try different options of `geth import` such as `--snapshot`, `--db.engine`, and `--state.scheme` to improve full sync speed and size.
 
 
 
