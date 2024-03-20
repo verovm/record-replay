@@ -132,7 +132,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 			// check substate works for faithful replay
 			go func(block uint64, tx int, substate *research.Substate) {
-				err := TestReplay(block, tx, substate)
+				err := CheckReplay(block, tx, substate)
 				if err != nil {
 					panic(err)
 				}
@@ -213,21 +213,21 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	return applyTransaction(msg, config, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }
 
-// record-replay: --skip-test-replay flag
+// record-replay: --skip-check-replay flag
 var (
-	SkipTestReplayFlag = &cli.BoolFlag{
-		Name:  "skip-test-replay",
+	SkipCheckReplayFlag = &cli.BoolFlag{
+		Name:  "skip-check-replay",
 		Usage: "Skip checking faithful transaction replay tests",
 		Value: false,
 	}
-	SkipTestReplay = SkipTestReplayFlag.Value
+	SkipCheckReplay = SkipCheckReplayFlag.Value
 )
 
-// TestReplay checks faithful transaction replay with the given substate
+// CheckReplay checks faithful transaction replay with the given substate
 // and store json files of substates if execution results are different.
-// This function immediately returns nil if SkipTestReplay is true.
-func TestReplay(block uint64, tx int, substate *research.Substate) error {
-	if SkipTestReplay {
+// This function immediately returns nil if SkipCheckReplay is true.
+func CheckReplay(block uint64, tx int, substate *research.Substate) error {
+	if SkipCheckReplay {
 		return nil
 	}
 

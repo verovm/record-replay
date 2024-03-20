@@ -80,9 +80,9 @@ The directory is a single LevelDB instance, so you must read or write the substa
 The substate DB may be corrupted if you directly write or modify any files in the directory.
 Do not use LevelDB library for other languages (C++, Python, etc.) because they are incompatible with the goleveldb module.
 
-Since `rr0.4`, our recorder requires more memory to test faithful replay before write substates to substate DB.
+Our recorder requires more memory to test faithful replay before write substates to substate DB.
 Therefore, it is recommended to have 32GB RAM for recodring.
-If you want to run without testing faithful replay, use `--skip-test-replay` option.
+If you want to run without testing faithful replay, use `--skip-check-replay` option.
 
 
 

@@ -1080,7 +1080,7 @@ func TestStateDBSaveSubstateOutputAlloc(t *testing.T) {
 	statedb.SetNonce(addr, 3)
 	statedb.SetBalance(addr, big.NewInt(4))
 	statedb.SetState(addr, common.HexToHash("0x5"), common.HexToHash("0x6"))
-	statedb.Commit(false)
+	statedb.Commit(1, false)
 
 	statedb.SetTxContext(common.Hash{}, 0)
 	statedb.GetState(addr, common.HexToHash("0x5"))
