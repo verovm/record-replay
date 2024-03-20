@@ -2,9 +2,7 @@
 
 
 
-## Unstable release note
-
-### TODOs
+## TODOs
 * New database backends to replace Goleveldb.
   * Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation.
   * Option 1: Embedded KVDB. The main advantage is straightforward migration from Goleveldb to a new KVDB backend. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language.
@@ -24,7 +22,7 @@
 
 
 
-## TBD: record-replay 0.5.0 release note
+## Unstable record-replay 0.5.0 release note
 **Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.1...rr0.5.0
 
 ### Updates
@@ -33,7 +31,8 @@
 
 ### Faithful replay check
 * rr0.4 recorder, `--block-segment 1-18_000_000` (`--block-segment 0-18M`): TBD
-* rr0.5.0 recorder, `--block-segment 1-19_500_000` (`--block-segment 0-19500k`): TBD
+* rr0.5.0 recorder, `--block-segment 1-19_500_000` (`--block-segment 0-19M`): TBD
+* rr0.5.0 recorder, `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): TBD
 
 
 
