@@ -5,8 +5,6 @@
 ## Unstable release note
 
 ### TODOs
-* Prepare for upcoming hard forks in 2024.
-  * Confirmed that Geth v1.13.14 supports Cancun hard fork, and Geth v1.13.14 can import PoW blocks.
 * New database backends to replace Goleveldb.
   * Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation.
   * Option 1: Embedded KVDB. The main advantage is straightforward migration from Goleveldb to a new KVDB backend. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language.
@@ -24,9 +22,18 @@
   * For KVDB backends, use a key `"1i"+code_hash` for initialization code.
   * For RDBMS, use `codes` table for deployed code and `init_codes` for init code.
 
-### DONE
-* Support hard fork Cancun (`19_426_587`)
+
+
+## TBD: record-replay 0.5.0 release note
+**Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.1...rr0.5.0
+
+### Updates
 * Based on Geth v1.13.14
+* Support hard fork Cancun (`19_426_587`)
+
+### Faithful replay check
+* rr0.4 recorder, `--block-segment 1-18_000_000` (`--block-segment 0-18M`): TBD
+* rr0.5.0 recorder, `--block-segment 1-19_500_000` (`--block-segment 0-19500k`): TBD
 
 
 
