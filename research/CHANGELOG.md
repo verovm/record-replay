@@ -17,8 +17,10 @@
 --substate-db "postgres,user=pqgotest dbname=pqgotest sslmode=verify-full"
 ```
 * New database layout to separate deployed code for accounts and initialization code from tx messages.
-  * For KVDB backends, use a key `"1i"+code_hash` for initialization code.
-  * For RDBMS, use `codes` table for deployed code and `init_codes` for init code.
+  * For KVDB backends, use a key `"1i"+initCodeHash` for initialization code.
+  * For RDBMS, use `codes` table for deployed code and `init_codes` for initialization code.
+  * `substate-cli db-rr0.5-to-rr0.X` or `substate-cli db-goleveldb-init-codes` will directly modify the provided Goleveldb instance by copying all `"1c"+codeHash` pairs as `"1i"+initCodeHash` pairs.
+  * `substate-cli db-compact` will perform in-place garbage-collection on `codes` and `init_codes`.
 
 
 
@@ -28,16 +30,24 @@
 ### Updates
 * Based on Geth v1.13.14. https://github.com/verovm/record-replay/compare/geth-v1.13.14...rr0.5.0
 * Support hard fork Cancun (`19_426_587`).
+* Fixed the issue that `substate-cli replay-fork` reported correct outputs as misc errors.
 
 ### Important notes
-* `geth record-substate` is expected to be faster with `--state.scheme path` option introduced with Geth v1.13.
-* `geth record-substate` is based on `geth import`, so it can select Goleveldb (`--db.engine leveldb`) or Pebble (`--db.engine pebble`) for Geth DB (`--datadir`) introduced in Geth v1.12. Substate DB (`--substatedir`) supports only Goleveldb in rr0.4. A new substate DB backend will be introduced in a later version.
+* Geth v1.12 and v1.13 cannot run `geth import` and `geth record-substate` to import PoWs blocks into Geth DBs from Geth v1.10 and v1.11. Therefore, rr0.5 recorder must start importing PoW blocks from the genesis block into a newly initialized empty Geth DB.
+* `geth record-substate` is based on `geth import`, so it can select Goleveldb (`--db.engine leveldb`) or Pebble (`--db.engine pebble`) for Geth DB (`--datadir`) introduced in Geth v1.12. Substate DB (`--substatedir`) supports only Goleveldb. A new substate DB backend will be introduced in a later version.
 
 ### Faithful replay check
-* rr0.4 recorder, `--block-segment 1-18_000_000` (`--block-segment 0-18M`): OK
-* rr0.5.0 recorder, `--block-segment 1-10_000_000` (`--block-segment 0-10M`): TBD
-* rr0.5.0 recorder, `--block-segment 10_000_001-19_000_000` (`--block-segment 10-19M`): TBD
-* rr0.5.0 recorder, `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): TBD
+* rr0.4 recorder, rr0.5.0 replayer
+  * `--block-segment 1-18_000_000` (`--block-segment 0-18M`): OK
+* rr0.5.0 recorder, rr0.4 replayer
+  * `--block-segment 1-10_000_000` (`--block-segment 0-10M`): TBD
+  * `--block-segment 10_000_001-16_000_000` (`--block-segment 10-16M`): TBD
+  * `--block-segment 16_000_001-19_000_000` (`--block-segment 16-19M`): TBD
+* rr0.5.0 recorder, rr0.5.0 replayer
+  * `--block-segment 1-10_000_000` (`--block-segment 0-10M`): TBD
+  * `--block-segment 10_000_001-16_000_000` (`--block-segment 10-16M`): TBD
+  * `--block-segment 16_000_001-19_000_000` (`--block-segment 16-19M`): TBD
+  * `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): TBD
 
 
 

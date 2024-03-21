@@ -18,10 +18,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var UpgradeCommand = &cli.Command{
-	Action: upgrade,
-	Name:   "db-upgrade",
-	Usage:  "upgrade old rr0.3 DB layout (RLP) to new rr0.4 DB layout (Protobuf)",
+var Rr03ToRr04Command = &cli.Command{
+	Action: rr03ToRr04,
+	Name:   "db-rr0.3-to-rr0.4",
+	Aliases: []string{
+		"db-rlp2proto",
+	},
+	Usage: "upgrade old rr0.3 DB layout (RLP) to new rr0.4 DB layout (Protobuf)",
 	Flags: []cli.Flag{
 		research.WorkersFlag,
 		research.BlockSegmentFlag,
@@ -43,7 +46,7 @@ var UpgradeCommand = &cli.Command{
 		core.SkipCheckReplayFlag,
 	},
 	Description: `
-The substate db-upgrade command upgrade substate encoding from old rr0.3 RLP to
+The substate db-rr0.3-to-rr0.4 command upgrade substate encoding from old rr0.3 RLP to
 new rr0.4 Protobuf and copy into the new DB of a given block segment.
 
 old-path is old rr0.3 DB layout using RLP for encoding substates.
@@ -95,7 +98,7 @@ func readBcTxTypes(file string) (map[uint64][]uint8, error) {
 	return bcTxTypes, nil
 }
 
-func upgrade(ctx *cli.Context) error {
+func rr03ToRr04(ctx *cli.Context) error {
 	var err error
 
 	core.SkipCheckReplay = ctx.Bool(core.SkipCheckReplayFlag.Name)
