@@ -34,8 +34,7 @@
 * `geth record-substate` is based on `geth import`, so it can select Goleveldb (`--db.engine leveldb`) or Pebble (`--db.engine pebble`) for Geth DB (`--datadir`) introduced in Geth v1.12. Substate DB (`--substatedir`) supports only Goleveldb in rr0.4. A new substate DB backend will be introduced in a later version.
 
 ### Faithful replay check
-* rr0.4 recorder, `--block-segment 1-8_000_000` (`--block-segment 0-8M`): OK
-* rr0.4 recorder, `--block-segment 8_000_001-18_000_000` (`--block-segment 8-18M`): TBD
+* rr0.4 recorder, `--block-segment 1-18_000_000` (`--block-segment 0-18M`): OK
 * rr0.5.0 recorder, `--block-segment 1-10_000_000` (`--block-segment 0-10M`): TBD
 * rr0.5.0 recorder, `--block-segment 10_000_001-19_000_000` (`--block-segment 10-19M`): TBD
 * rr0.5.0 recorder, `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): TBD
