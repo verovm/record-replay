@@ -234,14 +234,15 @@ func (pool *SubstateTaskPool) ExecuteSegment(segment *BlockSegment) error {
 
 		duration := time.Since(start) + 1*time.Nanosecond
 		sec := duration.Seconds()
-		if block == segment.Last || block%1000000 == 0 ||
-			(block%100000 == 0 && sec > lastSec+1) ||
+		nb, nt := atomic.LoadInt64(&totalNumBlock), atomic.LoadInt64(&totalNumTx)
+		if block == segment.Last ||
+			(block%1000000 == 0 && sec > lastSec+1) ||
+			(block%100000 == 0 && sec > lastSec+2) ||
 			(block%10000 == 0 && sec > lastSec+5) ||
 			(block%1000 == 0 && sec > lastSec+10) ||
 			(block%100 == 0 && sec > lastSec+20) ||
 			(block%10 == 0 && sec > lastSec+40) ||
 			(sec > lastSec+60) {
-			nb, nt := atomic.LoadInt64(&totalNumBlock), atomic.LoadInt64(&totalNumTx)
 			blkPerSec := float64(nb-lastNumBlock) / (sec - lastSec)
 			txPerSec := float64(nt-lastNumTx) / (sec - lastSec)
 			fmt.Printf("%s: elapsed time: %v, number = %v\n", pool.Name, duration.Round(1*time.Millisecond), block)
