@@ -20,7 +20,7 @@ var DbCompactCommand = &cli.Command{
 		research.SubstateDirFlag,
 	},
 	Description: `
-The substate-cli db-compact command runs compaction functionalty of
+The substate-cli db-compact command runs compaction functionality of
 the backend of the given substate DB`,
 	Category: "db",
 }

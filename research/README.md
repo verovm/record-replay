@@ -40,7 +40,7 @@ Protobuf named its data structure as *message*.
 
 ## Unhashed substate vs. Hashed Substate
 Contract code in `Account` and initialization code in `TxMessage` are defined as `oneof` raw bytecode (i.e., unhashed) or Keccak256 code hash (i.e., hashed) in [substate.proto](./substate.proto).
-The main purpose of converting unhashed substates to hashed substates is to reduce the size of substates by replacing length bytecode to fixed size code hash.
+The main purpose of converting unhashed substates to hashed substates is to reduce the size of substates by replacing length bytecode with fixed-size code hash.
 
 
 
@@ -80,8 +80,8 @@ The directory is a single LevelDB instance, so you must read or write the substa
 The substate DB may be corrupted if you directly write or modify any files in the directory.
 Do not use LevelDB library for other languages (C++, Python, etc.) because they are incompatible with the goleveldb module.
 
-Our recorder requires more memory to test faithful replay before write substates to substate DB.
-Therefore, it is recommended to have 32GB RAM for recodring.
+Our recorder requires more memory to test faithful replay before writing substates to substate DB.
+Therefore, it is recommended to have 32GB RAM for recording.
 If you want to run without testing faithful replay, use `--skip-check-replay` option.
 
 Our `geth record-substate` command is based on `geth import` full sync. You may want to try different options of `geth import` such as `--snapshot`, `--db.engine`, and `--state.scheme` to improve full sync speed and size.
@@ -200,7 +200,7 @@ OPTIONS:
 
 ### `db-rr0.3-to-rr0.4`
 `substate-cli db-rr0.3-to-rr0.4` (aliased to `substate-cli db-rlp2proto`) command converts the old rr0.3 DB layout (RLP) to the rr0.4 DB layout (Protobuf).
-To guarantee faithful replay after upgrading, `db-rr0.3-to-rr0.4` replays the upgraded substates before write them to the new substate DB.
+To guarantee faithful replay after upgrading, `db-rr0.3-to-rr0.4` replays the upgraded substates before writing them to the new substate DB.
 `--blockchain` option can be used to supplement tx types which are required for rr0.4 substates but missing in rr0.3 substates.
 ```
 ./substate-cli db-rr0.3-to-rr0.4 --old-path rr0.3.substate.ethereum --new-path rr0.4.substate.ethereum --blockchain 0-1M.blockchain --block-segment 0-1M --workers 0
@@ -218,7 +218,7 @@ If `--blockchain` is not provided, then `substate db-rr0.3-to-rr0.4` will guess 
 ```
 
 ### `db-compact`
-`substate-cli db-compact` command compacts any LevelDB instance including the substate DB.
+`substate-cli db-compact` command runs compaction functionality of the backend of the given substate DB.
 ```
 ./substate-cli db-compact --substatedir substate.ethereum
 ```
