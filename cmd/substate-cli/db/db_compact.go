@@ -12,20 +12,20 @@ import (
 	cli "github.com/urfave/cli/v2"
 )
 
-var CompactCommand = &cli.Command{
-	Action: compact,
+var DbCompactCommand = &cli.Command{
+	Action: dbCompact,
 	Name:   "db-compact",
-	Usage:  "Compat substate goleveldb isntance",
+	Usage:  "Run compaction functionality of the backend DB",
 	Flags: []cli.Flag{
 		research.SubstateDirFlag,
 	},
 	Description: `
-The substate-cli db-compact substate goleveldb instance - discarding deleted and
-overwritten versions`,
+The substate-cli db-compact command runs compaction functionalty of
+the backend of the given substate DB`,
 	Category: "db",
 }
 
-func compact(ctx *cli.Context) error {
+func dbCompact(ctx *cli.Context) error {
 	var err error
 
 	dbPath := ctx.Path(research.SubstateDirFlag.Name)
@@ -38,24 +38,24 @@ func compact(ctx *cli.Context) error {
 	}
 	db, err := leveldb.OpenFile(dbPath, dbOpt)
 	if err != nil {
-		return fmt.Errorf("substate-cli db compact: error opening dbPath %s: %v", dbPath, err)
+		return fmt.Errorf("substate-cli db-compact: error opening dbPath %s: %w", dbPath, err)
 	}
 
 	start := time.Now()
-	fmt.Printf("substate-cli db compact: compaction begin\n")
+	fmt.Printf("substate-cli db-compact: compaction begin\n")
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		err = db.CompactRange(leveldb_util.Range{})
 		if err != nil {
-			panic(fmt.Errorf("substate-cli db compact: error compacting dbPath %s: %v", dbPath, err))
+			panic(fmt.Errorf("substate-cli db-compact: error compacting dbPath %s: %w", dbPath, err))
 		}
 		wg.Done()
 	}()
 	wg.Wait()
 	duration := time.Since(start)
-	fmt.Printf("substate-cli db compact: compaction completed\n")
-	fmt.Printf("substate-cli db compact: elapsed time: %v\n", duration.Round(1*time.Millisecond))
+	fmt.Printf("substate-cli db-compact: compaction completed\n")
+	fmt.Printf("substate-cli db-compact: elapsed time: %v\n", duration.Round(1*time.Millisecond))
 
 	return nil
 }

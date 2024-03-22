@@ -17,7 +17,7 @@
 --substate-db "postgres,user=pqgotest dbname=pqgotest sslmode=verify-full"
 ```
 * New database layout to separate deployed code for accounts and initialization code from tx messages.
-  * Not sure whether this benefits recorder and replayer or not. This requires a major change in design of hashed and unhashed substates. It is much simple to make a client to iterate all hashed substates and identify hashes of code and init code outside the substaet DB.
+  * Not sure whether this update really benefits the overall off-the-chain testing framework. This breaks replayer's backward compatiblity and requires upgrading the entire DB layout. This requires major changes in design and implementation of hashed and unhashed substates. It is much simpler to make a client to iterate all hashed substates and identify hashes of code and init code.
 
 
 

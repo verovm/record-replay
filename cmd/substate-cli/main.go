@@ -20,9 +20,9 @@ func init() {
 	app.Commands = []*cli.Command{
 		replay.ReplayCommand,
 		replay.ReplayForkCommand,
-		db.CloneCommand,
-		db.CompactCommand,
-		db.Rr03ToRr04Command,
+		db.DbCloneCommand,
+		db.DbCompactCommand,
+		db.DbRr03ToRr04Command,
 		rr03_db.UpgradeCommand,
 		rr03_db.CloneCommand,
 		rr03_db.CompactCommand,

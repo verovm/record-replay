@@ -18,8 +18,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var Rr03ToRr04Command = &cli.Command{
-	Action: rr03ToRr04,
+var DbRr03ToRr04Command = &cli.Command{
+	Action: dbRr03ToRr04,
 	Name:   "db-rr0.3-to-rr0.4",
 	Aliases: []string{
 		"db-rlp2proto",
@@ -98,7 +98,7 @@ func readBcTxTypes(file string) (map[uint64][]uint8, error) {
 	return bcTxTypes, nil
 }
 
-func rr03ToRr04(ctx *cli.Context) error {
+func dbRr03ToRr04(ctx *cli.Context) error {
 	var err error
 
 	core.SkipCheckReplay = ctx.Bool(core.SkipCheckReplayFlag.Name)
