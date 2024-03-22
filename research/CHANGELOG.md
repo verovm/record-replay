@@ -16,8 +16,10 @@
 --substate-db "mysql,root:pwd@tcp(127.0.0.1:3306)/testdb"
 --substate-db "postgres,user=pqgotest dbname=pqgotest sslmode=verify-full"
 ```
-* New database layout to separate deployed code for accounts and initialization code from tx messages.
-  * Not sure whether this update really benefits the overall off-the-chain testing framework. This breaks replayer's backward compatiblity and requires upgrading the entire DB layout. This requires major changes in design and implementation of hashed and unhashed substates. It is much simpler to make a client to iterate all hashed substates and identify hashes of code and init code.
+* New substate DB layout to save metadata - not recommended
+  * For example, get tx types, account addresses, code hashes, and init code hashes before substate deserialization. This requires major changes in the design and implementation of hashed and unhashed substates.
+  * Not sure whether this update really benefits the overall off-the-chain testing framework. Changing the DB layout breaks the replayer's backward compatibility. This requires upgrading the entire DB or recording billions of substates again. 
+  * With Protobuf and new DB backends with better portability with other languages, it will become much simpler to write client programs to iterate all substates and collect metadata. This is a more recommended way than breaking forward and backward compatibilities of substate DB.
 
 
 
