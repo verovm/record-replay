@@ -195,10 +195,8 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	eqResult := proto.Equal(substate.Result, replaySubstate.Result)
 
 	if eqAlloc && eqResult {
-		stat = &ReplayForkStat{
-			Count:  1,
-			ErrStr: fmt.Sprintf("%v", ErrReplayForkMisc),
-		}
+		// same transaction output state and result
+		stat = nil
 		return nil
 	}
 
