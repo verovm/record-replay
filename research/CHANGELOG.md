@@ -25,7 +25,7 @@
 
 
 ## Unstable record-replay 0.5.0 release note
-**Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.1...rr0.5.0
+**Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.2...rr0.5.0
 
 ### Updates
 * Based on Geth v1.13.14. https://github.com/verovm/record-replay/compare/geth-v1.13.14...rr0.5.0
@@ -34,8 +34,6 @@
 
 ### Important notes
 * Geth v1.12 and v1.13 cannot run `geth import` to import PoWs blocks into Geth DBs from Geth v1.10 and v1.11. Therefore, rr0.5 recorder must start importing PoW blocks from the genesis block into a newly initialized empty Geth DB. `geth record-substate` is based on `geth import`, so it can select Goleveldb (`--db.engine leveldb`) or Pebble (`--db.engine pebble`) for Geth DB (`--datadir`) introduced in Geth v1.12. Substate DB (`--substatedir`) supports only Goleveldb. A new substate DB backend will be introduced in a later version.
-
-
 
 ### Faithful replay check
 * rr0.5.0 recorder, rr0.5.0 replayer
