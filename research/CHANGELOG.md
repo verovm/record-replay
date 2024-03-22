@@ -24,7 +24,13 @@
   * For KVDB backends, use a key `"1i"+code_hash` for initialization code.
   * For RDBMS, use `codes` table for deployed code and `init_codes` for init code.
 
-### DONE
+
+
+## record-replay 0.4.2 release note
+**Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.1...rr0.4.2
+
+### Updates
+* Fix the critical issue of `substate-cli replay-fork` reporting correct outputs as misc errors (backport)
 
 
 
