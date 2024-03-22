@@ -17,10 +17,7 @@
 --substate-db "postgres,user=pqgotest dbname=pqgotest sslmode=verify-full"
 ```
 * New database layout to separate deployed code for accounts and initialization code from tx messages.
-  * For KVDB backends, use a key `"1i"+initCodeHash` for initialization code.
-  * For RDBMS, use `codes` table for deployed code and `init_codes` for initialization code.
-  * `substate-cli db-rr0.5-to-rr0.X` or `substate-cli db-goleveldb-init-codes` will directly modify the provided Goleveldb instance by copying all `"1c"+codeHash` pairs as `"1i"+initCodeHash` pairs.
-  * `substate-cli db-compact` will perform in-place garbage-collection on `codes` and `init_codes`.
+  * Not sure whether this benefits recorder and replayer or not. This requires a major change in design of hashed and unhashed substates. It is much simple to make a client to iterate all hashed substates and identify hashes of code and init code outside the substaet DB.
 
 
 
