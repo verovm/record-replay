@@ -18,8 +18,8 @@
 ```
 * New substate DB layout to save metadata - not recommended
   * For example, get tx types, account addresses, code hashes, and init code hashes before substate deserialization. This requires major changes in the design and implementation of hashed and unhashed substates.
-  * Not sure whether this update really benefits the overall off-the-chain testing framework. Changing the DB layout breaks the replayer's backward compatibility. This requires upgrading the entire DB or recording billions of substates again. 
-  * With Protobuf and new DB backends with better portability with other languages, it will become much simpler to write client programs to iterate all substates and collect metadata. This is a more recommended way than breaking forward and backward compatibilities of substate DB.
+  * Not sure whether this update really benefits the overall off-the-chain testing framework. Changing the DB layout breaks the replayer's backward compatibility. This requires upgrading the entire DB or recording billions of substates again.
+  * With Protobuf and new DB backends with better portability with other languages, it will become much simpler to write client programs to iterate all substates and collect metadata. This is a more recommended way as it preserves forward and backward compatibilities of substate DB.
 
 
 
@@ -30,22 +30,23 @@
 * Based on Geth v1.13.14. https://github.com/verovm/record-replay/compare/geth-v1.13.14...rr0.5.0
 * Support hard fork Cancun (`19_426_587`).
 * Fixed the critical issue of `substate-cli replay-fork` reporting correct outputs as misc errors.
+* Renamed `substate-cli db-upgrade` to `substate-cli db-rr0.3-to-rr0.4` or `substate-cli db-rlp2proto` to avoid any confusion.
 
 ### Important notes
 * Geth v1.12 and v1.13 cannot run `geth import` to import PoWs blocks into Geth DBs from Geth v1.10 and v1.11. Therefore, rr0.5 recorder must start importing PoW blocks from the genesis block into a newly initialized empty Geth DB. `geth record-substate` is based on `geth import`, so it can select Goleveldb (`--db.engine leveldb`) or Pebble (`--db.engine pebble`) for Geth DB (`--datadir`) introduced in Geth v1.12. Substate DB (`--substatedir`) supports only Goleveldb. A new substate DB backend will be introduced in a later version.
 
 ### Faithful replay check
 * rr0.5.0 recorder, rr0.5.0 replayer
-  * `--block-segment 1-10_000_000` (`--block-segment 0-10M`): TBD
+  * `--block-segment 1-10_000_000` (`--block-segment 0-10M`): recording...
   * `--block-segment 10_000_001-16_000_000` (`--block-segment 10-16M`): TBD
-  * `--block-segment 16_000_001-19_000_000` (`--block-segment 16-19M`): TBD
-  * `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): TBD
+  * `--block-segment 16_000_001-19_000_000` (`--block-segment 16-19M`): recording...
+  * `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): TBD (in April)
 * rr0.4.1 recorder, rr0.5.0 replayer (backwward compatibility)
   * `--block-segment 1-18_000_000` (`--block-segment 0-18M`): OK
 * rr0.5.0 recorder, rr0.4.1 replayer (forward compatibility)
-  * `--block-segment 1-10_000_000` (`--block-segment 0-10M`): TBD
+  * `--block-segment 1-10_000_000` (`--block-segment 0-10M`): recording...
   * `--block-segment 10_000_001-16_000_000` (`--block-segment 10-16M`): TBD
-  * `--block-segment 16_000_001-19_000_000` (`--block-segment 16-19M`): TBD
+  * `--block-segment 16_000_001-19_000_000` (`--block-segment 16-19M`): recording...
 
 
 
