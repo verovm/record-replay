@@ -7,7 +7,8 @@ To build our recorder (`geth record-substate`) and replayer (`substate-cli`), ru
 Running `make rr` or `make` works exactly same as `make record-replay`.
 You can find all executables including `geth` and our `substate-cli` in `build/bin/` directory.
 
-Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
+* Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
+* Check [TODO.md](./TODO.md) for TODOs.
 
 
 
