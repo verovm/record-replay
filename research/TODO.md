@@ -8,11 +8,14 @@ When a TODO item is completed, move it to a release note in CHANGELOG.md
 
 
 ## New database backends
-* Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation.
-  * Option 1: Embedded KVDB. The main advantage is straightforward migration from Goleveldb to a new KVDB backend. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language. Erigon (Turbo-Geth in the past) uses MDBX (a derivative of LMDB) which has good Go and Python libraries.
-  * Option 2: RDBMS and SQL. The main advantage is portability and compatibility because major languages have SQL libraries. If a new RDBMS backend supports concurrency very well, multiple recorders and/or replayers can run in parallel on multicore and/or distributed systems. Embedded RDBMS such as SQLite3, or remote RDBMS such as MySQL, MariaDB, and PostgreSQL.
-  * Option 3: a DB server with support of public APIs such as REST, GraphQL, gRPC, etc.
-* Introduce new `--substate-db` option which receives `"backend,URI"` parameter. Deprecate `--substatedir` flag in favor of the new `--substate-db`. For example:
+Priority: high
+
+Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation.
+* Option 1: Embedded KVDB. The main advantage is straightforward migration from Goleveldb to a new KVDB backend. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language. Erigon (Turbo-Geth in the past) uses MDBX (a derivative of LMDB) which has good Go and Python libraries.
+* Option 2: RDBMS and SQL. The main advantage is portability and compatibility because major languages have SQL libraries. If a new RDBMS backend supports concurrency very well, multiple recorders and/or replayers can run in parallel on multicore and/or distributed systems. Embedded RDBMS such as SQLite3, or remote RDBMS such as MySQL, MariaDB, and PostgreSQL.
+* Option 3: a DB server with support of public APIs such as REST, GraphQL, gRPC, etc.
+
+Introduce new `--substate-db` option which receives `"backend,URI"` parameter. Deprecate `--substatedir` flag in favor of the new `--substate-db`. For example:
 ```
 --substate-db "goleveldb,substate.ethereum"
 --substate-db "pebble,/path/to/substatedir"
@@ -24,21 +27,37 @@ When a TODO item is completed, move it to a release note in CHANGELOG.md
 
 
 
-## New substate DB layout (NOT recommended!)
-* New substate DB layout to save metadata is not recommended!
-  * For example, get tx types, account addresses, code hashes, and init code hashes before substate deserialization. This requires major changes in the design and implementation of hashed and unhashed substates.
+## New substate DB layout
+Priority: NOT recommended!
+
+*A new substate DB layout to save metadata is not recommended!*
+* For example, get tx types, account addresses, code hashes, and init code hashes before substate deserialization. This requires major changes in the design and implementation of hashed and unhashed substates.
 * Not sure whether changing substate DB layout for metadata benefits the overall off-the-chain testing framework. Changing the DB layout breaks the replayer's backward compatibility. This requires upgrading the entire DB or recording billions of substates again.
-  * With Protobuf and new DB backends with better portability with other languages, it will become much simpler to write client programs to iterate all substates and collect metadata. This is a more recommended way as it preserves forward and backward compatibilities of substate DB.
+* With Protobuf and new DB backends with better portability with other languages, it will become much simpler to write client programs to iterate all substates and collect metadata. This is a more recommended way as it preserves forward and backward compatibilities of substate DB.
 
 
 
 ## record-replay based on another Ethereum client
-* Recorder/Replayer implementation based on other Ethereum execution layer clients.
-* Many reported that Erigon (Turbo-Geth in the past) and Reth are much faster in full sync than Geth, Nethermind, Besu. Reth is a bit faster than Erigon. Reth is a completely new implementation from scratch in Rust language. Erigon is based on Geth, so it will be much easier to migrate from Geth to Erigon than to Reth.
-* A new client must be able to import blocks from a chain file in RLP exported from Geth. The full block import features of the new clients must be functional and stable enough.
-  * Erigon 2.58.2 and 2.59.0 raise segmentation fault with `erigon import` command.
-* If a new client supports archive node and JSON RPC for transaction replay like `debug_traceBlockByNumber`, then we can add a new RPC like `substate_recordBlockSubstates` to return substates in Protobuf JSON.
-  * With a substate DB backend that other languages can read and write, it is possible to keep an archive node running to sync blocks and use a JSON RPC client calling `substate_recordBlockSubstates` and save returned substates to the substate DB.
-  * This would work for Erigon which can sync via network sync but cannot import a chain file at the moment.
-  * Reth manages its EVM implementation as the external revm crate, which needs some work to manually instrument revm and change reth build config to use the modified revm. Reth supports Geth-style JSON RPC APIs and tracers like `debug_traceBlockByNumber`. If reth defines all JSON RPC APIs and tracers in the reth crate itself, we do not need to spend time with reth project build config.
-* Q. Create a new repository based on another Ethereum client, e.g., verovm/substate-recorder-erigon, or add the recorder based on Erigon to the existing verovm/record-replay repository?
+Priority: moderate
+
+Ethereum community thinks that client diversity is critical.
+https://clientdiversity.org/#why
+
+In the point of testing framework, client diversity is not critical. However, there are other reasons to consider working based on clients other than Geth. Some clients are optimized for stability, speed, and/or data size.
+
+Geth is not very fast and requires a huge amount of space. To solve the speed and space problems, Geth frequently changes the DB scheme every year. But Geth never provides an offline DB migration tool. (The complexity of guaranteeing the correctness of historical states after migration seems to be challenging.) The only option is fresh DB synchronization from scratch again - either import the entire chain again for several weeks or wait for some latest Geth nodes to fully synced to provide the snapshot over the network.
+
+There are two options when implement recorder/replayer based on other Ethereum execution layer (EL) clients.
+* Option 1: A new client can replay transactions in full sync importing blocks from chain files, e.g., `geth import`.
+* Option 2: A new client can replay transactions via JSON RPC on archive nodes, e.g., `debug_traceBlockByNumber`. We can add a new JSON RPC function e.g., `substate_recordBlockSubstates` based on `debug_traceBlockByNumber` which returns recorded substates of a given block number.
+  * With a substate DB backend that other languages can read and write, it becomes possible to keep an archive node running to sync the latest blocks and use the JSON RPC client to call `substate_recordBlockSubstates` and save returned substates to the substate DB.
+
+Erigon and Reth are optimized for time and space to maintain EL nodes compared to other clients including Geth, Nethermind, and Besu.
+
+Erigon (Turbo-Geth) is based on Geth but much faster in full sync than other clients with smaller archive node sizes.  Erigon embedded its own consensus layer client called Caplin used when `--internalcl` option is given.
+* Option 1: `erigon import` can be used. The current latest versions of Erigon, 2.58.2 and 2.59.0, suffer segmentation faults with `erigon import` command with the initial 100k blocks (`1-1000000`).
+* Option 2: Erigon archive node is much smaller and faster, taking about a week to sync 15M blocks. Erigon supports `debug_traceBlockByNumber`.
+
+Reth is a recently started project to implement EL client in Rust programming language. Reth manages its EVM implementation as the external revm crate, which needs some time to work on manual instrumentation in revm and modify reth build config to use the instrumented revm. Reth is still a beta version. Reth supports JSON RPC APIs and EVM instruction tracers similar to the Geth-style. If Reth defines all JSON RPC APIs and EVM tracers in the reth crate itself, we may not need to spend time for instrumenting revm.
+* Option 1: `reth import` command can be used. Need to test whether the latest Reth has no problem running `reth import`.
+* Option 2: Reth supports Geth-style JSON RPC APIs and EVM tracers for `debug_traceBlockByNumber`.

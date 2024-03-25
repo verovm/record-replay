@@ -15,10 +15,9 @@
 * Renamed `substate-cli db-upgrade` to `substate-cli db-rr0.3-to-rr0.4` or `substate-cli db-rlp2proto` to avoid any confusion.
 
 ### Important notes
-* Geth v1.13 cannot run `geth import` with DB (`--datadir`) of Geth v1.10 because PoS support is marked unavailable. We should run Geth v1.11 or v1.12 to *upgrade* the old Geth DB to mark that PoS support is available.
+* Geth v1.13 cannot run `geth import` directly on Geth v1.10 DB (`--datadir`) because PoS support is marked unavailable. We should run Geth v1.11 or v1.12 to *upgrade* the old Geth DB to mark that PoS support is available.
   * One simple way is importing the genesis block, `./geth-1.11.6 --datadir datadir.geth-1.10 --nocompaction=true import genesis.rlp`. We can obtain the genesis block running `geth export genesis.rlp 0` with any version of initialized Geth.
   * You would like to use `--nocompaction=true` option because DB compaction takes hours and days with a large Geth DB.
-* As `geth record-substate` is based on `geth import`, you can select Goleveldb (`--db.engine leveldb`) or Pebble (`--db.engine pebble`) for Geth DB (`--datadir`) introduced in Geth v1.12.
 * rr0.5 supports only Goleveldb substate DB (`--substatedir`). New substate DB backends will be introduced in the future.
 
 ### Faithful replay check
