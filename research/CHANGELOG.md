@@ -15,10 +15,10 @@
 * Renamed `substate-cli db-upgrade` to `substate-cli db-rr0.3-to-rr0.4` or `substate-cli db-rlp2proto` to avoid any confusion.
 
 ### Important notes
-* Geth v1.13 cannot run `geth import` directly on Geth v1.10 DB (`--datadir`) because PoS support is marked unavailable. We should run Geth v1.11 or v1.12 to *upgrade* the old Geth DB to mark that PoS support is available.
-  * One simple way is importing the genesis block, `./geth-1.11.6 --datadir datadir.geth-1.10 --nocompaction=true import genesis.rlp`. We can obtain the genesis block running `geth export genesis.rlp 0` with any version of initialized Geth.
-  * You would like to use `--nocompaction=true` option because DB compaction takes hours and days with a large Geth DB.
-* rr0.5 supports only Goleveldb substate DB (`--substatedir`). New substate DB backends will be introduced in the future.
+* Geth v1.13 cannot run `geth import` directly on Geth v1.10 DB (`--datadir`) because PoS support is marked unavailable. We should run Geth v1.11.6 to *upgrade* the old Geth DB to mark that PoS support is available.
+  * One simple solution is importing the genesis block, `./geth-1.11.6 --datadir datadir.geth-1.10 import genesis.rlp`. We can obtain the genesis block running `geth export genesis.rlp 0` with any version of initialized Geth.
+  * Since v1.12, Geth expects `TerminalTotalDifficultyPassed` in chain configs to be `true`, while Geth v1.10 set it `false`. Geth v1.11.6 can change `TerminalTotalDifficultyPassed` from `false` to `true`.
+* While Geth v1.13.14 which supports Goleveldb or Pebble for its DB engine, rr0.5 recorder and replayer support only Goleveldb for its substate DB (`--substatedir`).
 
 ### Faithful replay check
 * rr0.5.0 recorder, rr0.5.0 replayer
@@ -30,7 +30,7 @@
   * `--block-segment 1-18_000_000` (`--block-segment 0-18M`): OK
 * rr0.5.0 recorder, rr0.4.1 replayer (forward compatibility)
   * `--block-segment 1-10_000_000` (`--block-segment 0-10M`): recording...
-  * `--block-segment 10_000_001-16_000_000` (`--block-segment 10-16M`): TBD
+  * `--block-segment 10_000_001-16_000_000` (`--block-segment 10-16M`): recording...
   * `--block-segment 16_000_001-19_000_000` (`--block-segment 16-19M`): recording...
 
 
