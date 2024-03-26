@@ -98,12 +98,13 @@ type ReplayForkStat struct {
 var ReplayForkStatChan chan *ReplayForkStat = make(chan *ReplayForkStat, 1_000_000)
 var ReplayForkStatMap map[string]*ReplayForkStat = make(map[string]*ReplayForkStat)
 
-var (
-	ErrReplayForkOutOfGas     = errors.New("out of gas in replay-fork")
-	ErrReplayForkInvalidAlloc = errors.New("invalid alloc in replay-fork")
-	ErrReplayForkMoreGas      = errors.New("more gas in replay-fork")
-	ErrReplayForkLessGas      = errors.New("less gas in replay-fork")
-	ErrReplayForkMisc         = errors.New("misc in replay-fork")
+const (
+	ReplayForkResult_Equal        = "equal output in replay-fork"
+	ReplayForkResult_OutOfGas     = "out of gas in replay-fork"
+	ReplayForkResult_InvalidAlloc = "invalid alloc in replay-fork"
+	ReplayForkResult_MoreGas      = "more gas in replay-fork"
+	ReplayForkResult_LessGas      = "less gas in replay-fork"
+	ReplayForkResult_Misc         = "misc in replay-fork"
 )
 
 func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool *research.SubstateTaskPool) error {
@@ -162,7 +163,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		}
 		stat = &ReplayForkStat{
 			Count:  1,
-			ErrStr: fmt.Sprintf("%v", erruw),
+			ErrStr: fmt.Sprintf("runtime error: %v", erruw),
 		}
 		return nil
 	}
@@ -197,7 +198,10 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 
 	if eqAlloc && eqResult {
 		// same transaction output state and result
-		stat = nil
+		stat = &ReplayForkStat{
+			Count:  1,
+			ErrStr: ReplayForkResult_Equal,
+		}
 		return nil
 	}
 
@@ -218,7 +222,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		// if output was successful but evm failed, return runtime error
 		stat = &ReplayForkStat{
 			Count:  1,
-			ErrStr: fmt.Sprintf("%v", msgErr),
+			ErrStr: fmt.Sprintf("tx error: %v", msgErr),
 		}
 		return nil
 	}
@@ -231,7 +235,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		if len(outputAlloc) != len(evmAlloc) {
 			stat = &ReplayForkStat{
 				Count:  1,
-				ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
+				ErrStr: ReplayForkResult_OutOfGas,
 			}
 			return nil
 		}
@@ -241,7 +245,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 			if account2 == nil {
 				stat = &ReplayForkStat{
 					Count:  1,
-					ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
+					ErrStr: ReplayForkResult_InvalidAlloc,
 				}
 				return nil
 			}
@@ -250,7 +254,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 			if account1.Nonce != account2.Nonce {
 				stat = &ReplayForkStat{
 					Count:  1,
-					ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
+					ErrStr: ReplayForkResult_InvalidAlloc,
 				}
 				return nil
 			}
@@ -259,7 +263,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 			if !bytes.Equal(account1.GetCode(), account2.GetCode()) {
 				stat = &ReplayForkStat{
 					Count:  1,
-					ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
+					ErrStr: ReplayForkResult_InvalidAlloc,
 				}
 				return nil
 			}
@@ -276,7 +280,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 			if len(storage1) != len(storage2) {
 				stat = &ReplayForkStat{
 					Count:  1,
-					ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
+					ErrStr: ReplayForkResult_InvalidAlloc,
 				}
 				return nil
 			}
@@ -284,7 +288,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 				if v2, exist := storage2[k]; !exist || v1 != v2 {
 					stat = &ReplayForkStat{
 						Count:  1,
-						ErrStr: fmt.Sprintf("%v", ErrReplayForkInvalidAlloc),
+						ErrStr: ReplayForkResult_InvalidAlloc,
 					}
 					return nil
 				}
@@ -295,7 +299,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		if *evmResult.GasUsed > *outputResult.GasUsed {
 			stat = &ReplayForkStat{
 				Count:  1,
-				ErrStr: fmt.Sprintf("%v", ErrReplayForkMoreGas),
+				ErrStr: ReplayForkResult_MoreGas,
 			}
 			return nil
 		}
@@ -304,7 +308,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		if *evmResult.GasUsed < *outputResult.GasUsed {
 			stat = &ReplayForkStat{
 				Count:  1,
-				ErrStr: fmt.Sprintf("%v", ErrReplayForkLessGas),
+				ErrStr: ReplayForkResult_LessGas,
 			}
 			return nil
 		}
@@ -312,7 +316,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 		// misc: logs, ...
 		stat = &ReplayForkStat{
 			Count:  1,
-			ErrStr: fmt.Sprintf("%v", ErrReplayForkMisc),
+			ErrStr: ReplayForkResult_Misc,
 		}
 		return nil
 
@@ -321,7 +325,7 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	// misc (logs, ...)
 	stat = &ReplayForkStat{
 		Count:  1,
-		ErrStr: fmt.Sprintf("%v", ErrReplayForkMisc),
+		ErrStr: ReplayForkResult_Misc,
 	}
 	return nil
 }
@@ -400,14 +404,21 @@ func replayForkAction(ctx *cli.Context) error {
 	}
 
 	statWg.Wait()
+	var totalCount int64 = 0
 	errstrSlice := make([]string, 0, len(ReplayForkStatMap))
-	for errstr := range ReplayForkStatMap {
+	for errstr, stat := range ReplayForkStatMap {
 		errstrSlice = append(errstrSlice, errstr)
+		totalCount += stat.Count
 	}
+	sort.Slice(errstrSlice, func(i, j int) bool {
+		return ReplayForkStatMap[errstrSlice[i]].Count < ReplayForkStatMap[errstrSlice[j]].Count
+	})
+	fmt.Printf("substate-cli replay-fork: %12s %7s %s\n", "Count", "Ratio", "Result")
 	for _, errstr := range errstrSlice {
 		stat := ReplayForkStatMap[errstr]
 		count := stat.Count
-		fmt.Printf("substate-cli replay-fork: %12v %s\n", count, errstr)
+		percentStr := fmt.Sprintf("%.02f%%", float64(count)/float64(totalCount)*100)
+		fmt.Printf("substate-cli replay-fork: %12v %7s %s\n", count, percentStr, errstr)
 	}
 
 	return err
