@@ -235,6 +235,8 @@ Protobuf named its data structure as *message*.
 Contract code in `Account` and initialization code in `TxMessage` are defined as `oneof` raw bytecode (i.e., unhashed) or Keccak256 code hash (i.e., hashed) in [substate.proto](./substate.proto).
 The main purpose of converting unhashed substates to hashed substates is to reduce the size of substates by replacing lengthy bytecode with fixed-size code hash.
 
+`substate_utils.go` defines `HashMap`, `HashKeys`, `HashedCopy`, and `UnhashedCopy` helper functions for conversion between unhashed substates and hashed substates.
+
 
 
 ## Tips for debugging recorder
