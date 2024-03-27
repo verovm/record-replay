@@ -1,7 +1,6 @@
 # Ethereum Substate Recorder/Replayer Changelog
 
-* Check [README.md](./README.md) for docs.
-* Check [TODO.md](./TODO.md) for TODOs.
+Check [README.md](./README.md) for docs and [TODO.md](./TODO.md) for TODOs.
 
 
 

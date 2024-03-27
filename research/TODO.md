@@ -1,7 +1,6 @@
 # Ethereum Substate Recorder/Replayer TODO
 
-* Check [README.md](./README.md) for docs.
-* Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
+Check [README.md](./README.md) for docs and [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 When a TODO item is completed, move it to a release note in CHANGELOG.md
 

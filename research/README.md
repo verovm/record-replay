@@ -7,8 +7,7 @@ To build our recorder (`geth record-substate`) and replayer (`substate-cli`), ru
 Running `make rr` or `make` works exactly same as `make record-replay`.
 You can find all executables including `geth` and our `substate-cli` in `build/bin/` directory.
 
-* Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
-* Check [TODO.md](./TODO.md) for TODOs.
+Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 `geth --version` from record-replay will print both the Geth version and the record-replay version. For example, it will print `geth version 1.13.14-rr0.5.0-commit` which indicates `rr0.5.0` is based on Geth `v1.13.14`.
 
@@ -18,6 +17,8 @@ You can find all executables including `geth` and our `substate-cli` in `build/b
 Here is a simple way how to record substates.
 1. Sync `geth` up to the block that you want to record and replay.
 Geth full/snap sync will download blocks from the genesis block.
+To sync blocks after the PoS update, you need to simultaneously run a consensus layer client.
+Visit [Nodes and Clients](https://ethereum.org/en/developers/docs/nodes-and-clients/) page for more details.
 2. Export blocks using `geth export` command.
 For example, `geth export ethereum.blockchain` to export from the genesis block to the latest synced block.
 3. Import the exported blocks to record substates using `geth record-substate` command from scratch.
@@ -35,7 +36,23 @@ Our recorder requires more memory to test faithful replay while writing substate
 Therefore, it is recommended to have 32GB RAM for recording.
 If you want to run without testing faithful replay, use `--skip-check-replay` option.
 
-Our `geth record-substate` command is based on `geth import` full sync. You may want to try different options of `geth import` such as `--snapshot`, `--db.engine`, and `--state.scheme` to improve full sync speed and size.
+Our `geth record-substate` command is based on `geth import` full sync. You may want to try different options of `geth import` such as `--snapshot`, `--db.engine`, and `--state.scheme` to improve full sync speed and size. The `--datadir` path after `geth record-substate` will be at the last block of the imported chain same as `geth import`. 
+
+For example, if you want to record from block `2_000_001` to `3_000_000`:
+```bash
+# Ctrl+C to stop syncing when geth finished sync blocks to record
+./geth --datadir datadir-1
+
+# Export blockchain files 0-2M, 2-3M
+./geth export --datadir datadir-1 0-2M.blockchain 1 2000000
+./geth export --datadir datadir-1 2-3M.blockchain 2000001 3000000
+
+# Import blockchain files up to 2M
+./geth import --datadir datadir-2 0-2M.blockchain
+
+# Record substates from 2M to 3M
+./geth record-substate --datadir datadir-2 2-3M.blockchain
+```
 
 
 
