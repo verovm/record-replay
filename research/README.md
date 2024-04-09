@@ -204,6 +204,13 @@ If `--blockchain` is not provided or substates are not found in the provided blo
 ./substate-cli db-compact --substatedir substate.ethereum
 ```
 
+### `db-export`
+`substate-cli db-export` command exports substates to files. `--json` option to export base64 JSON instead of binary. `--hashed` option to replace raw bytecode to code hash when export. For hashed substates, read through the next sections for more details.
+```
+./substate-cli db-export --substatedir substate.ethereum --out-dir substate-db-export --block-segment 1-2M --workers 0
+```
+The exported files are named after their block number and tx index. For example, the substate at tx index 0 at block 1,000,000 is named `1000000_0.bin`.
+
 
 
 ## Substate data structures
