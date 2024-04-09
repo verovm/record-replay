@@ -209,7 +209,7 @@ If `--blockchain` is not provided or substates are not found in the provided blo
 ```
 ./substate-cli db-export --substatedir substate.ethereum --out-dir substate-db-export --block-segment 1-2M --workers 0
 ```
-The exported files are named after their block number and tx index. For example, the substate at tx index 0 at block 1,000,000 is named `1000000_0.bin`.
+The exported files are named after their block number and tx index. For example, the substate at tx index 0 at block 1,000,000 is named `1000000_0`.
 
 
 

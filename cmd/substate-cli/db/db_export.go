@@ -68,6 +68,13 @@ func dbExport(ctx *cli.Context) error {
 		ext = "bin"
 	}
 
+	var suffix string
+	if outHashed {
+		suffix = "hashed"
+	} else {
+		suffix = "unhashed"
+	}
+
 	exportTask := func(block uint64, tx int, substate *research.Substate, taskPool *research.SubstateTaskPool) error {
 		var err error
 
@@ -81,7 +88,7 @@ func dbExport(ctx *cli.Context) error {
 			return fmt.Errorf("%v_%v marshal failed: %w", block, tx, err)
 		}
 
-		name := fmt.Sprintf("%v_%v.%s", block, tx, ext)
+		name := fmt.Sprintf("substate_%v_%v_%s.%s", block, tx, suffix, ext)
 		path := filepath.Join(outDir, name)
 
 		err = os.WriteFile(path, bs, 0664)
