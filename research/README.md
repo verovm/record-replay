@@ -67,7 +67,7 @@ The first 2 bytes of a key in a substate DB represent different data types as fo
 A goleveldb instance is the path of the directory that contains `*.ldb` files.
 Copying or overwriting `*.ldb` does not merge two instances but corrupts the written one.
 The goleveldb module and the official C++ LevelDB implementation are not compatible with each other.
-Therefore, you need to write a Go program to properly read and write Goleveldb instances.
+Therefore, you need to write a Go program to properly read and write goleveldb instances.
 
 
 
@@ -85,7 +85,7 @@ You can use SI unit suffix `k` and `M` to `--block-segment` for shorter notation
 ```bash
 ./substate-cli replay --block-segment 1-2M
 ```
-NOTE: When use `k` or `M` to `--block-segment`, the last digit of the first block number is `1`, not `0`.
+NOTE: When use `k` or `M` to `--block-segment`, the last digit of the first block number is `1`, not `0`, as described in the above examples.
 
 Here are command line options for `substate-cli replay`:
 ```
@@ -205,11 +205,15 @@ If `--blockchain` is not provided or substates are not found in the provided blo
 ```
 
 ### `db-export`
-`substate-cli db-export` command exports substates to files. `--json` option to export base64 JSON instead of binary. `--hashed` option to replace raw bytecode to code hash when export. For hashed substates, read through the next sections for more details.
+`substate-cli db-export` command exports substates to files.
+`--json` option to export base64 JSON instead of binary.
+`--hashed` option to replace raw bytecode to code hash when export.
+For hashed substates, read through the next sections for more details.
 ```
 ./substate-cli db-export --substatedir substate.ethereum --out-dir substate-db-export --block-segment 1-2M --workers 0
 ```
-The exported files are named after their block number and tx index. For example, the substate at tx index 0 at block 1,000,000 is named `1000000_0`.
+The exported files are named after their block number and tx index.
+For example, the substate file at tx index 0 at block 1,000,000 has `1000000_0` in its name.
 
 
 

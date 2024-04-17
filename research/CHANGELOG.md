@@ -10,8 +10,9 @@ Check [README.md](./README.md) for docs and [TODO.md](./TODO.md) for TODOs.
 ### Updates
 * Based on Geth v1.13.14. https://github.com/verovm/record-replay/compare/geth-v1.13.14...rr0.5.0
 * Support hard fork Cancun (`19_426_587`).
-* Fixed the critical issue of `substate-cli replay-fork` reporting correct outputs as misc errors.
+* Fixed the critical issue of `substate-cli replay-fork` in reporting correct outputs as misc errors.
 * Renamed `substate-cli db-upgrade` to `substate-cli db-rr0.3-to-rr0.4` or `substate-cli db-rlp2proto` to avoid any confusion.
+* New `substate-cli db-export` to save hashed/unhashed substates in binary/JSON(Base64)
 
 ### Important notes
 * Geth v1.13 cannot run `geth import` directly on Geth v1.10 DB (`--datadir`) because PoS support is marked unavailable. We should run Geth v1.11.6 to *upgrade* the old Geth DB to mark that PoS support is available.
@@ -21,16 +22,13 @@ Check [README.md](./README.md) for docs and [TODO.md](./TODO.md) for TODOs.
 
 ### Faithful replay check
 * rr0.5.0 recorder, rr0.5.0 replayer
-  * `--block-segment 1-10_000_000` (`--block-segment 0-10M`): recording...
-  * `--block-segment 10_000_001-16_000_000` (`--block-segment 10-16M`): recording...
-  * `--block-segment 16_000_001-19_000_000` (`--block-segment 16-19M`): recording...
+  * `--block-segment 1-19_000_000` (`--block-segment 0-19M`): OK
   * `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): TBD (in April)
-* rr0.4.1 recorder, rr0.5.0 replayer (backward compatibility)
+* rr0.4.2 recorder, rr0.5.0 replayer (backward compatibility)
   * `--block-segment 1-18_000_000` (`--block-segment 0-18M`): OK
-* rr0.5.0 recorder, rr0.4.1 replayer (forward compatibility)
-  * `--block-segment 1-10_000_000` (`--block-segment 0-10M`): recording...
-  * `--block-segment 10_000_001-16_000_000` (`--block-segment 10-16M`): recording...
-  * `--block-segment 16_000_001-19_000_000` (`--block-segment 16-19M`): recording...
+* rr0.5.0 recorder, rr0.4.2 replayer (forward compatibility)
+  * `--block-segment 1-19_000_000` (`--block-segment 0-19M`): OK
+  * `--block-segment 19_000_001-19_426_586`: TBD (in April)
 
 
 
