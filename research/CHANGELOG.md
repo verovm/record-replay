@@ -8,7 +8,7 @@ Check [README.md](./README.md) for docs and [TODO.md](./TODO.md) for TODOs.
 **Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.2...rr0.5.0
 
 ### Updates
-* Based on Geth v1.13.14. https://github.com/verovm/record-replay/compare/geth-v1.13.14...rr0.5.0
+* Based on Geth v1.13.15. https://github.com/verovm/record-replay/compare/geth-v1.13.15...rr0.5.0
 * Support hard fork Cancun (`19_426_587`).
 * Fixed the critical issue of `substate-cli replay-fork` in reporting correct outputs as misc errors.
 * Renamed `substate-cli db-upgrade` to `substate-cli db-rr0.3-to-rr0.4` or `substate-cli db-rlp2proto` to avoid any confusion.
@@ -18,7 +18,7 @@ Check [README.md](./README.md) for docs and [TODO.md](./TODO.md) for TODOs.
 * Geth v1.13 cannot run `geth import` directly on Geth v1.10 DB (`--datadir`) because PoS support is marked unavailable. We should run Geth v1.11.6 to *upgrade* the old Geth DB to mark that PoS support is available.
   * One simple solution is importing the genesis block, `./geth-1.11.6 --datadir datadir.geth-1.10 import genesis.rlp`. We can obtain the genesis block running `geth export genesis.rlp 0` with any version of initialized Geth.
   * Since v1.12, Geth expects `TerminalTotalDifficultyPassed` in chain configs to be `true`, while Geth v1.10 set it `false`. Geth v1.11.6 can change `TerminalTotalDifficultyPassed` from `false` to `true`.
-* While Geth v1.13.14 which supports Goleveldb or Pebble for its DB engine, rr0.5 recorder and replayer support only Goleveldb for its substate DB (`--substatedir`).
+* While Geth v1.13.15 which supports Goleveldb or Pebble for its DB engine, rr0.5 recorder and replayer support only Goleveldb for its substate DB (`--substatedir`).
 
 ### Faithful replay check
 * rr0.5.0 recorder, rr0.5.0 replayer
