@@ -1,10 +1,10 @@
 # Ethereum Substate Recorder/Replayer Changelog
 
-Check [README.md](./README.md) for docs and [TODO.md](./TODO.md) for TODOs.
+Check [README.md](./README.md) for docs.
 
 
 
-## Unstable record-replay 0.5.0 release note
+## record-replay 0.5.0 release note
 **Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.2...rr0.5.0
 
 ### Updates
@@ -23,12 +23,12 @@ Check [README.md](./README.md) for docs and [TODO.md](./TODO.md) for TODOs.
 ### Faithful replay check
 * rr0.5.0 recorder, rr0.5.0 replayer
   * `--block-segment 1-19_000_000` (`--block-segment 0-19M`): OK
-  * `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): TBD (in April)
+  * `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): OK
 * rr0.4.2 recorder, rr0.5.0 replayer (backward compatibility)
   * `--block-segment 1-18_000_000` (`--block-segment 0-18M`): OK
 * rr0.5.0 recorder, rr0.4.2 replayer (forward compatibility)
   * `--block-segment 1-19_000_000` (`--block-segment 0-19M`): OK
-  * `--block-segment 19_000_001-19_426_586`: TBD (in April)
+  * `--block-segment 19_000_001-19_426_586`: OK
 
 
 

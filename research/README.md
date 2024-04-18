@@ -9,7 +9,7 @@ You can find all executables including `geth` and our `substate-cli` in `build/b
 
 Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
-`geth --version` from record-replay will print both the Geth version and the record-replay version. For example, it will print `geth version 1.13.15-rr0.5.0-commit` which indicates `rr0.5.0` is based on Geth `v1.13.15`.
+Running with `--version` from record-replay will print both the Geth version and the record-replay version. For example, `geth --version` will print `geth version 1.13.15-rr0.5.0-commit` which indicates `rr0.5.0` is based on Geth `v1.13.15`.
 
 
 
