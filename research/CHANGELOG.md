@@ -17,7 +17,7 @@ Check [README.md](./README.md) for docs and [TODO.md](./TODO.md) for TODOs.
 ### Important notes
 * Geth v1.13 cannot run `geth import` directly on Geth v1.10 DB (`--datadir`) because PoS support is marked unavailable. We should run Geth v1.11.6 to *upgrade* the old Geth DB to mark that PoS support is available.
   * One simple solution is importing the genesis block, `./geth-1.11.6 --datadir datadir.geth-1.10 import genesis.rlp`. We can obtain the genesis block running `geth export genesis.rlp 0` with any version of initialized Geth.
-  * Since v1.12, Geth expects `TerminalTotalDifficultyPassed` in chain configs to be `true`, while Geth v1.10 set it `false`. Geth v1.11.6 can change `TerminalTotalDifficultyPassed` from `false` to `true`.
+  * Since v1.12, Geth expects `TerminalTotalDifficultyPassed` in chain configs to be `true`, while Geth v1.10 sets it to `false`. Geth v1.11.6 can change `TerminalTotalDifficultyPassed` from `false` to `true`.
 * While Geth v1.13.15 which supports Goleveldb or Pebble for its DB engine, rr0.5 recorder and replayer support only Goleveldb for its substate DB (`--substatedir`).
 
 ### Faithful replay check
