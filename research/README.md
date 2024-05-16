@@ -5,11 +5,12 @@ Ethereum substate recorder/replayer based on the paper:
 
 To build our recorder (`geth record-substate`) and replayer (`substate-cli`), run `make record-replay`.
 Running `make rr` or `make` works exactly same as `make record-replay`.
+
 You can find all executables including `geth` and our `substate-cli` in `build/bin/` directory.
+Running with `--version` from record-replay will print both the Geth version and the record-replay version.
+For example, `./geth --version` will print `geth version 1.13.15-rr0.5.0-commit` which indicates `rr0.5.0` is based on Geth `v1.13.15`.
 
 Check [CHANGELOG.md](./CHANGELOG.md) for release notes.
-
-Running with `--version` from record-replay will print both the Geth version and the record-replay version. For example, `geth --version` will print `geth version 1.13.15-rr0.5.0-commit` which indicates `rr0.5.0` is based on Geth `v1.13.15`.
 
 
 
