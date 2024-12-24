@@ -4,6 +4,14 @@ Check [README.md](./README.md) for docs.
 
 
 
+## record-replay 0.5.1 release note
+**Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.5.0...rr0.5.1
+
+### Updates
+* `substate-cli db-compact` splits compaction tasks into smaller ranges instead of compaction the entire substate DB at once. This update mitigates the issue that the size of Goleveldb grows while DB compaction is running.
+
+
+
 ## record-replay 0.5.0 release note
 **Full Changelog**: https://github.com/verovm/record-replay/compare/rr0.4.2...rr0.5.0
 
