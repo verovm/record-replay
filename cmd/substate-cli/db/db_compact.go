@@ -2,9 +2,11 @@ package db
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/research"
 	"github.com/syndtr/goleveldb/leveldb"
 	leveldb_opt "github.com/syndtr/goleveldb/leveldb/opt"
@@ -46,7 +48,32 @@ func dbCompact(ctx *cli.Context) error {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		err = db.CompactRange(leveldb_util.Range{})
+		fmt.Printf("substate-cli db-compact: compacting substates...\n")
+		for b, m, s := 0, 0xffffffff, 0xffff; b <= m; b += s {
+			start := research.Stage1SubstateKey(uint64(b), 0)
+			end := research.Stage1SubstateKey(uint64(b+s), 0)
+			if b+s >= m {
+				end = research.Stage1SubstateKey(math.MaxUint64, math.MaxInt)
+			}
+			err = db.CompactRange(leveldb_util.Range{Start: start, Limit: end})
+			if err != nil {
+				panic(fmt.Errorf("substate-cli db-compact: error compacting dbPath %s: %w", dbPath, err))
+			}
+		}
+
+		fmt.Printf("substate-cli db-compact: compacting bytecodes...\n")
+		for b := 0; b <= 255; b++ {
+			start := research.Stage1CodeKey(common.Hash{byte(b)})
+			end := research.Stage1CodeKey(common.Hash{byte(b + 1)})
+			if b == 255 {
+				end = research.Stage1CodeKey(common.MaxHash)
+			}
+			err = db.CompactRange(leveldb_util.Range{Start: start, Limit: end})
+			if err != nil {
+				panic(fmt.Errorf("substate-cli db-compact: error compacting dbPath %s: %w", dbPath, err))
+			}
+		}
+
 		if err != nil {
 			panic(fmt.Errorf("substate-cli db-compact: error compacting dbPath %s: %w", dbPath, err))
 		}
