@@ -1534,9 +1534,6 @@ func (sdb *StateDB) LoadSubstate(substate *research.Substate) {
 			sdb.SetState(addr, *research.BytesToHash(pair.Key), *research.BytesToHash(pair.Value))
 		}
 	}
-	// Commit and re-open to start with a clean state.
-	_, err := sdb.Commit(*substate.BlockEnv.Number, false)
-	if err != nil {
-		panic(fmt.Errorf("error calling statedb.Commit() in MakeOffTheChainStateDB(): %w", err))
-	}
+	// Finalise to start with a clean state.
+	sdb.Finalise(false)
 }
