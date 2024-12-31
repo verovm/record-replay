@@ -40,12 +40,14 @@ func dbDumpCode(ctx *cli.Context) error {
 	fmt.Printf("substate-cli: db-dump-code: begin")
 
 	outputDir := ctx.Path("out-dir")
+	fmt.Printf("substate-cli: db-dump-code: outputDir: %s\n", outputDir)
 	err = os.MkdirAll(outputDir, 0o755)
 	if err != nil {
 		return err
 	}
 
 	dbPath := ctx.Path(research.SubstateDirFlag.Name)
+	fmt.Printf("substate-cli: db-dump-code: dbPath: %s\n", dbPath)
 	dbOpt := &leveldb_opt.Options{
 		BlockCacheCapacity:     1 * leveldb_opt.GiB,
 		OpenFilesCacheCapacity: 50,
@@ -60,7 +62,9 @@ func dbDumpCode(ctx *cli.Context) error {
 
 	iterRange := leveldb_util.BytesPrefix([]byte(research.Stage1CodePrefix))
 	iter := db.NewIterator(iterRange, nil)
-	for iter.Next() {
+	var count int
+	var lastSec float64
+	for count = 0; iter.Next(); count++ {
 		key := iter.Key()
 		value := iter.Value()
 
@@ -76,6 +80,13 @@ func dbDumpCode(ctx *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("substate-cli: db-dump-code: error writing file: %v", err)
 		}
+
+		duration := time.Since(start)
+		sec := duration.Seconds()
+		if count%1000 == 0 && sec > lastSec+5 {
+			fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #bytecodes = %v\n", duration.Round(1*time.Microsecond), count)
+			lastSec = sec
+		}
 	}
 	iter.Release()
 	err = iter.Error()
@@ -84,7 +95,7 @@ func dbDumpCode(ctx *cli.Context) error {
 	}
 
 	duration := time.Since(start)
-	fmt.Printf("substate-cli: db-dump-code: elapsed time: %v\n", duration.Round(1*time.Millisecond))
+	fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #bytecodes = %v\n", duration.Round(1*time.Millisecond), count)
 
 	return nil
 }
