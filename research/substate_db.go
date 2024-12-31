@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	stage1SubstatePrefix = "1s" // stage1SubstatePrefix + block (64-bit) + tx (64-bit) -> substateRLP
-	stage1CodePrefix     = "1c" // stage1CodePrefix + codeHash (256-bit) -> code
+	Stage1SubstatePrefix = "1s" // stage1SubstatePrefix + block (64-bit) + tx (64-bit) -> substateRLP
+	Stage1CodePrefix     = "1c" // stage1CodePrefix + codeHash (256-bit) -> code
 )
 
 func Stage1SubstateKey(block uint64, tx int) []byte {
-	prefix := []byte(stage1SubstatePrefix)
+	prefix := []byte(Stage1SubstatePrefix)
 
 	blockTx := make([]byte, 16)
 	binary.BigEndian.PutUint64(blockTx[0:8], block)
@@ -27,7 +27,7 @@ func Stage1SubstateKey(block uint64, tx int) []byte {
 }
 
 func DecodeStage1SubstateKey(key []byte) (block uint64, tx int, err error) {
-	prefix := stage1SubstatePrefix
+	prefix := Stage1SubstatePrefix
 	if len(key) != len(prefix)+8+8 {
 		err = fmt.Errorf("invalid length of stage1 substate key: %v", len(key))
 		return
@@ -43,7 +43,7 @@ func DecodeStage1SubstateKey(key []byte) (block uint64, tx int, err error) {
 }
 
 func Stage1SubstateBlockPrefix(block uint64) []byte {
-	prefix := []byte(stage1SubstatePrefix)
+	prefix := []byte(Stage1SubstatePrefix)
 
 	blockBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(blockBytes[0:8], block)
@@ -52,12 +52,12 @@ func Stage1SubstateBlockPrefix(block uint64) []byte {
 }
 
 func Stage1CodeKey(codeHash common.Hash) []byte {
-	prefix := []byte(stage1CodePrefix)
+	prefix := []byte(Stage1CodePrefix)
 	return append(prefix, codeHash.Bytes()...)
 }
 
 func DecodeStage1CodeKey(key []byte) (codeHash common.Hash, err error) {
-	prefix := stage1CodePrefix
+	prefix := Stage1CodePrefix
 	if len(key) != len(prefix)+32 {
 		err = fmt.Errorf("invalid length of stage1 code key: %v", len(key))
 		return

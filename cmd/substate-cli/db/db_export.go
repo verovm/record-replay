@@ -22,7 +22,7 @@ var DbExportCommand = &cli.Command{
 		research.SubstateDirFlag,
 		&cli.PathFlag{
 			Name:  "out-dir",
-			Usage: "Destination DB path",
+			Usage: "output directory to save exported substates",
 			Value: "substate-db-export",
 		},
 		&cli.BoolFlag{
@@ -52,7 +52,10 @@ func dbExport(ctx *cli.Context) error {
 	defer research.CloseSubstateDB()
 
 	outDir := ctx.Path("out-dir")
-	os.MkdirAll(outDir, 0775)
+	err = os.MkdirAll(outDir, 0775)
+	if err != nil {
+		return err
+	}
 
 	var marshaler interface {
 		Marshal(m protoreflect.ProtoMessage) ([]byte, error)

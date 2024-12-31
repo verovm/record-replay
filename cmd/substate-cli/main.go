@@ -22,6 +22,7 @@ func init() {
 		replay.ReplayForkCommand,
 		db.DbCloneCommand,
 		db.DbCompactCommand,
+		db.DbDumpCodeCommand,
 		db.DbExportCommand,
 		db.DbRr03ToRr04Command,
 		rr03_db.UpgradeCommand,
