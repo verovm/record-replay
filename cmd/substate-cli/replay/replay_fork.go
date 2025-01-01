@@ -193,7 +193,8 @@ func replayForkTask(block uint64, tx int, substate *research.Substate, taskPool 
 	txMessage.SaveSubstate(replaySubstate)
 	rr.SaveSubstate(replaySubstate)
 
-	eqAlloc := proto.Equal(substate.OutputAlloc, replaySubstate.OutputAlloc)
+	eqAlloc := proto.Equal(substate.InputAlloc, replaySubstate.InputAlloc) &&
+		proto.Equal(substate.OutputAlloc, replaySubstate.OutputAlloc)
 	eqResult := proto.Equal(substate.Result, replaySubstate.Result)
 
 	if eqAlloc && eqResult {
