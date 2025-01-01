@@ -10,7 +10,7 @@ Check [README.md](./README.md) for docs.
 ### Updates
 * `substate-cli db-compact` splits compaction tasks into smaller ranges instead of compaction the entire substate DB at once. This update mitigates the issue that the size of Goleveldb grows while DB compaction is running.
 * New `substate-cli db-dump-code` command to read and save all bytecodes from substate DB.
-* `geth record-trace` and `substate-cli replay` also check input substates for stronger guarantees of faithful replay.
+* `geth record-trace` and `substate-cli replay` check complete substates including inputs and outputs for stronger guarantees of faithful replay.
 
 
 

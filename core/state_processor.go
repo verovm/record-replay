@@ -265,7 +265,7 @@ func CheckReplay(block uint64, tx int, substate *research.Substate) error {
 	statedb.LoadSubstate(substate)
 
 	// BlockEnv
-	blockContext := vm.BlockContext{
+	blockContext := &vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
 	}
@@ -283,7 +283,7 @@ func CheckReplay(block uint64, tx int, substate *research.Substate) error {
 
 	vmConfig := vm.Config{}
 
-	evm := vm.NewEVM(blockContext, vm.TxContext{}, statedb, chainConfig, vmConfig)
+	evm := vm.NewEVM(*blockContext, vm.TxContext{}, statedb, chainConfig, vmConfig)
 
 	statedb.SetTxContext(common.Hash{}, tx)
 
@@ -304,6 +304,14 @@ func CheckReplay(block uint64, tx int, substate *research.Substate) error {
 		statedb.Finalise(chainConfig.IsEIP158(blockNumber))
 	}
 
+	replaySubstate := &research.Substate{}
+	statedb.SaveSubstate(replaySubstate)
+
+	blockContext = &evm.Context
+	blockContext.SaveSubstate(replaySubstate)
+
+	txMessage.SaveSubstate(replaySubstate)
+
 	rr := &research.ResearchReceipt{}
 	if result.Failed() {
 		rr.Status = types.ReceiptStatusFailed
@@ -312,20 +320,12 @@ func CheckReplay(block uint64, tx int, substate *research.Substate) error {
 	}
 	rr.Logs = statedb.GetLogs(common.Hash{}, blockContext.BlockNumber.Uint64(), common.Hash{})
 	rr.Bloom = types.CreateBloom(types.Receipts{&types.Receipt{Logs: rr.Logs}})
-
 	rr.GasUsed = result.UsedGas
-
-	replaySubstate := &research.Substate{}
-	statedb.SaveSubstate(replaySubstate)
-	blockContext.SaveSubstate(replaySubstate)
-	txMessage.SaveSubstate(replaySubstate)
 	rr.SaveSubstate(replaySubstate)
 
-	eqAlloc := proto.Equal(substate.InputAlloc, replaySubstate.InputAlloc) &&
-		proto.Equal(substate.OutputAlloc, replaySubstate.OutputAlloc)
-	eqResult := proto.Equal(substate.Result, replaySubstate.Result)
+	eqSubstate := proto.Equal(substate, replaySubstate)
 
-	if !(eqAlloc && eqResult) {
+	if !eqSubstate {
 		fmt.Printf("block %v, tx %v, inconsistent output\n", block, tx)
 		jm := protojson.MarshalOptions{
 			Indent: "  ",
