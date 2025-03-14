@@ -158,7 +158,11 @@ func dbDumpCode(ctx *cli.Context) error {
 	}
 
 	duration := time.Since(start)
-	fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #bytecodes = %v\n", duration.Round(1*time.Millisecond), len(codeHashSet))
+	if deployedOnly {
+		fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #substates = %v, #bytecodes = %v\n", duration.Round(1*time.Microsecond), iterCount, len(codeHashSet))
+	} else {
+		fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #bytecodes = %v\n", duration.Round(1*time.Millisecond), len(codeHashSet))
+	}
 
 	return nil
 }
