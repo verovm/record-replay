@@ -7,12 +7,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/research"
 	"github.com/status-im/keycard-go/hexutils"
-	"github.com/syndtr/goleveldb/leveldb"
-	leveldb_opt "github.com/syndtr/goleveldb/leveldb/opt"
-	leveldb_util "github.com/syndtr/goleveldb/leveldb/util"
 	cli "github.com/urfave/cli/v2"
+	"google.golang.org/protobuf/proto"
 )
 
 var DbDumpCodeCommand = &cli.Command{
@@ -25,6 +26,11 @@ var DbDumpCodeCommand = &cli.Command{
 			Name:  "out-dir",
 			Usage: "output directory to save dumped bytecode",
 			Value: "substate-db-code",
+		},
+		&cli.BoolFlag{
+			Name:  "deployed-only",
+			Usage: "output only deployed contracts, no init code",
+			Value: false,
 		},
 	},
 	Description: `
@@ -48,44 +54,101 @@ func dbDumpCode(ctx *cli.Context) error {
 
 	dbPath := ctx.Path(research.SubstateDirFlag.Name)
 	fmt.Printf("substate-cli: db-dump-code: dbPath: %s\n", dbPath)
-	dbOpt := &leveldb_opt.Options{
-		BlockCacheCapacity:     1 * leveldb_opt.GiB,
-		OpenFilesCacheCapacity: 50,
-
-		ErrorIfMissing: true,
-		ReadOnly:       true,
-	}
-	db, err := leveldb.OpenFile(dbPath, dbOpt)
+	db, err := rawdb.NewLevelDBDatabase(dbPath, 1024, 100, "substatedir", true)
 	if err != nil {
 		return fmt.Errorf("substate-cli: db-dump-code: error opening dbPath %s: %v", dbPath, err)
 	}
 
-	iterRange := leveldb_util.BytesPrefix([]byte(research.Stage1CodePrefix))
-	iter := db.NewIterator(iterRange, nil)
-	var count int
+	deployedOnly := ctx.Bool("deployed-only")
+
+	var iter ethdb.Iterator
+	var iterCount int
+	codeHashSet := make(map[common.Hash]bool)
+	substateDB := research.NewSubstateDB(db)
 	var lastSec float64
-	for count = 0; iter.Next(); count++ {
+
+	if deployedOnly {
+		iter = db.NewIterator([]byte(research.Stage1SubstatePrefix), nil)
+	} else {
+		iter = db.NewIterator([]byte(research.Stage1CodePrefix), nil)
+	}
+
+	for iterCount = 0; iter.Next(); iterCount++ {
 		key := iter.Key()
 		value := iter.Value()
 
-		codeHash, err := research.DecodeStage1CodeKey(key)
-		if err != nil {
-			return fmt.Errorf("substate-cli: db-dump-code: error decoding code key: %v", err)
-		}
-		code := value
+		if deployedOnly {
+			// Dump only deployed code
+			block, tx, err := research.DecodeStage1SubstateKey(key)
+			if err != nil {
+				return fmt.Errorf("substate-cli: db-dump-code: error decoding substate key: %v", err)
+			}
 
-		outputPath := filepath.Join(outputDir, codeHash.Hex()+".hex")
-		outputCode := hexutils.BytesToHex(code)
-		err = ioutil.WriteFile(outputPath, []byte(outputCode), 0o644)
-		if err != nil {
-			return fmt.Errorf("substate-cli: db-dump-code: error writing file: %v", err)
-		}
+			hashedSubstate := &research.Substate{}
+			err = proto.Unmarshal(value, hashedSubstate)
+			if err != nil {
+				panic(fmt.Errorf("record-replay: error decoding substate %v_%v: %v", block, tx, err))
+			}
 
-		duration := time.Since(start)
-		sec := duration.Seconds()
-		if count%1000 == 0 && sec > lastSec+5 {
-			fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #bytecodes = %v\n", duration.Round(1*time.Microsecond), count)
-			lastSec = sec
+			codeHashSlice := []common.Hash{}
+			for _, entry := range hashedSubstate.InputAlloc.Alloc {
+				account := entry.Account
+				if codeHash := research.BytesToHash(account.GetCodeHash()); codeHash != nil {
+					if !codeHashSet[*codeHash] {
+						codeHashSlice = append(codeHashSlice, *codeHash)
+					}
+				}
+			}
+
+			for _, entry := range hashedSubstate.OutputAlloc.Alloc {
+				account := entry.Account
+				if codeHash := research.BytesToHash(account.GetCodeHash()); codeHash != nil {
+					if !codeHashSet[*codeHash] {
+						codeHashSlice = append(codeHashSlice, *codeHash)
+					}
+				}
+			}
+
+			for _, codeHash := range codeHashSlice {
+				code := substateDB.GetCode(codeHash)
+
+				outputPath := filepath.Join(outputDir, codeHash.Hex()+".hex")
+				outputCode := hexutils.BytesToHex(code)
+				err = ioutil.WriteFile(outputPath, []byte(outputCode), 0o644)
+				if err != nil {
+					return fmt.Errorf("substate-cli: db-dump-code: error writing file: %v", err)
+				}
+				codeHashSet[codeHash] = true
+			}
+
+			duration := time.Since(start)
+			sec := duration.Seconds()
+			if iterCount%1000 == 0 && sec > lastSec+5 {
+				fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #substates = %v, #bytecodes = %v\n", duration.Round(1*time.Microsecond), iterCount, len(codeHashSet))
+				lastSec = sec
+			}
+		} else {
+			// Dump both deployed and init code
+			codeHash, err := research.DecodeStage1CodeKey(key)
+			if err != nil {
+				return fmt.Errorf("substate-cli: db-dump-code: error decoding code key: %v", err)
+			}
+			code := value
+
+			outputPath := filepath.Join(outputDir, codeHash.Hex()+".hex")
+			outputCode := hexutils.BytesToHex(code)
+			err = ioutil.WriteFile(outputPath, []byte(outputCode), 0o644)
+			if err != nil {
+				return fmt.Errorf("substate-cli: db-dump-code: error writing file: %v", err)
+			}
+			codeHashSet[codeHash] = true
+
+			duration := time.Since(start)
+			sec := duration.Seconds()
+			if iterCount%1000 == 0 && sec > lastSec+5 {
+				fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #bytecodes = %v\n", duration.Round(1*time.Microsecond), len(codeHashSet))
+				lastSec = sec
+			}
 		}
 	}
 	iter.Release()
@@ -95,7 +158,7 @@ func dbDumpCode(ctx *cli.Context) error {
 	}
 
 	duration := time.Since(start)
-	fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #bytecodes = %v\n", duration.Round(1*time.Millisecond), count)
+	fmt.Printf("substate-cli: db-dump-code: elapsed time: %v, #bytecodes = %v\n", duration.Round(1*time.Millisecond), len(codeHashSet))
 
 	return nil
 }
