@@ -133,13 +133,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 			research.PutSubstate(block.NumberU64(), i, substate)
 
-			// check substate works for faithful replay
-			go func(block uint64, tx int, substate *research.Substate) {
-				err := CheckReplay(block, tx, substate)
-				if err != nil {
-					panic(err)
-				}
-			}(block.NumberU64(), i, substate)
+			if !SkipCheckReplay {
+				// check substate works for faithful replay
+				go func(block uint64, tx int, substate *research.Substate) {
+					err := CheckReplay(block, tx, substate)
+					if err != nil {
+						panic(err)
+					}
+				}(block.NumberU64(), i, substate.ProtoClone())
+			}
 		}
 
 		receipts = append(receipts, receipt)

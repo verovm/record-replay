@@ -220,6 +220,11 @@ func (x *Substate) HashKeys() map[common.Hash]struct{} {
 	return z
 }
 
+// (*Substate).ProtoClone returns a deep copy from proto.Clone
+func (x *Substate) ProtoClone() *Substate {
+	return proto.Clone(x).(*Substate)
+}
+
 // (*Substate).HashedCopy returns a copy of substate with code hashes in accounts and message.
 func (x *Substate) HashedCopy() *Substate {
 	y := proto.Clone(x).(*Substate)
