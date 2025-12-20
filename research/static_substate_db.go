@@ -27,7 +27,7 @@ func OpenSubstateDB() {
 	staticSubstateDB = NewSubstateDB(backend)
 
 	if asyncDbWrite {
-		putSubstateChan = make(chan *putSubstateTask, 1_000_000)
+		putSubstateChan = make(chan *putSubstateTask, 1000)
 		putSubstateWg = &sync.WaitGroup{}
 
 		putSubstateWg.Add(1)
