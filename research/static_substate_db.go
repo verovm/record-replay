@@ -2,11 +2,21 @@ package research
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/urfave/cli/v2"
 )
+
+type putSubstateTask struct {
+	block    uint64
+	tx       int
+	substate *Substate
+}
+
+var putSubstateChan chan *putSubstateTask
+var putSubstateWg *sync.WaitGroup
 
 func OpenSubstateDB() {
 	fmt.Println("record-replay: OpenSubstateDB")
@@ -15,6 +25,20 @@ func OpenSubstateDB() {
 		panic(fmt.Errorf("error opening substate leveldb %s: %v", substateDir, err))
 	}
 	staticSubstateDB = NewSubstateDB(backend)
+
+	if asyncDbWrite {
+		putSubstateChan = make(chan *putSubstateTask, 1_000_000)
+		putSubstateWg = &sync.WaitGroup{}
+
+		putSubstateWg.Add(1)
+		go func() {
+			defer putSubstateWg.Done()
+			for task := range putSubstateChan {
+				staticSubstateDB.PutSubstate(task.block, task.tx, task.substate)
+			}
+		}()
+	}
+
 }
 
 func OpenSubstateDBReadOnly() {
@@ -28,6 +52,11 @@ func OpenSubstateDBReadOnly() {
 
 func CloseSubstateDB() {
 	defer fmt.Println("record-replay: CloseSubstateDB")
+
+	if asyncDbWrite {
+		close(putSubstateChan)
+		putSubstateWg.Wait()
+	}
 
 	err := staticSubstateDB.Close()
 	if err != nil {
@@ -57,6 +86,8 @@ func CloseFakeSubstateDB() {
 func SetSubstateFlags(ctx *cli.Context) {
 	substateDir = ctx.Path(SubstateDirFlag.Name)
 	fmt.Printf("record-replay: --substatedir=%s\n", substateDir)
+	asyncDbWrite = ctx.Bool(AsyncDbWriteFlag.Name)
+	fmt.Printf("record-replay: --async-db-write=%v\n", asyncDbWrite)
 }
 
 func HasCode(codeHash common.Hash) bool {
@@ -84,7 +115,15 @@ func GetBlockSubstates(block uint64) map[int]*Substate {
 }
 
 func PutSubstate(block uint64, tx int, substate *Substate) {
-	staticSubstateDB.PutSubstate(block, tx, substate)
+	if asyncDbWrite {
+		putSubstateChan <- &putSubstateTask{
+			block:    block,
+			tx:       tx,
+			substate: substate,
+		}
+	} else {
+		staticSubstateDB.PutSubstate(block, tx, substate)
+	}
 }
 
 func DeleteSubstate(block uint64, tx int) {

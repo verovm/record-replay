@@ -623,6 +623,7 @@ var recordSubstateCommand = func() *cli.Command {
 	c.Flags = flags.Merge(c.Flags, []cli.Flag{
 		research.SubstateDirFlag,
 		core.SkipCheckReplayFlag,
+		research.AsyncDbWriteFlag,
 	})
 	return c
 }()

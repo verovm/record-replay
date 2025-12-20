@@ -20,6 +20,13 @@ var (
 	}
 	substateDir      = SubstateDirFlag.Value
 	staticSubstateDB *SubstateDB
+
+	AsyncDbWriteFlag = &cli.BoolFlag{
+		Name:  "async-db-write",
+		Usage: "Asynchronously write substates to substate DB",
+		Value: true,
+	}
+	asyncDbWrite = AsyncDbWriteFlag.Value
 )
 
 var (
