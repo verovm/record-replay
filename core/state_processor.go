@@ -131,6 +131,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			rr := research.NewResearchReceipt(receipt)
 			rr.SaveSubstate(substate)
 
+			// Deepcopy of substate for thread-safety
+			substate = substate.ProtoClone()
+
 			research.PutSubstate(block.NumberU64(), i, substate)
 
 			if !SkipCheckReplay {
@@ -140,7 +143,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 					if err != nil {
 						panic(err)
 					}
-				}(block.NumberU64(), i, substate.ProtoClone())
+				}(block.NumberU64(), i, substate)
 			}
 		}
 
