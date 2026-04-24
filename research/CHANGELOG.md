@@ -12,6 +12,7 @@ Check [README.md](./README.md) for docs.
 * New `substate-cli db-dump-code` command to read and save all bytecodes from substate DB.
 * `geth record-substate` and `substate-cli replay` check complete substates including inputs and outputs for stronger guarantees of faithful replay.
 * `geth record-substate` supports asynchronous DB write to the substate DB with `--async-db-write` option by default. To disable async DB write, pass `--async-db-write=false`.
+* `substate-cli replay --tx-list` option to fine-grained control on specifying which blocks and transactions to replay within the block segment.
 
 
 
