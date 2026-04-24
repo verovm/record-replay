@@ -135,7 +135,7 @@ type TxListElem struct {
 	tx    int
 }
 
-func ParseTxList(listPath string) (map[uint64]struct{}, map[TxListElem]struct{}) {
+func ParseTxListFile(listPath string) (map[uint64]struct{}, map[TxListElem]struct{}) {
 	blockSet := make(map[uint64]struct{})
 	txSet := make(map[TxListElem]struct{})
 

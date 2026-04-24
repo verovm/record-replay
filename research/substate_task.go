@@ -40,7 +40,7 @@ func NewSubstateTaskConfigCli(ctx *cli.Context) *SubstateTaskConfig {
 	config.TxListPath = ctx.Path(TxListFlag.Name)
 	config.TxListEnabled = (config.TxListPath != "")
 	if config.TxListEnabled {
-		config.BlockSet, config.TxSet = ParseTxList(config.TxListPath)
+		config.BlockSet, config.TxSet = ParseTxListFile(config.TxListPath)
 		config.TxBlockSet = make(map[uint64]struct{})
 		for elem := range config.TxSet {
 			config.TxBlockSet[elem.block] = struct{}{}
@@ -123,14 +123,10 @@ func (pool *SubstateTaskPool) NumWorkers() int {
 
 // ExecuteBlock function iterates on substates of a given block call TaskFunc
 func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error) {
-	isBlockListed := pool.Config.IsBlockListed(block)
-	if !isBlockListed {
-		return 0, nil
-	}
+	txSubstatesMap := pool.DB.GetBlockSubstatesWithTxList(block, pool.Config)
 
-	for tx, substate := range pool.DB.GetBlockSubstates(block) {
-		isTxListed := pool.Config.IsTxListed(block, tx)
-		skipTx := !isTxListed
+	for tx, substate := range txSubstatesMap {
+		skipTx := false
 		to := substate.TxMessage.To
 
 		if !skipTx && pool.Config.SkipTransferTxs && to != nil {

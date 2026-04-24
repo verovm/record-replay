@@ -172,16 +172,25 @@ func (db *SubstateDB) GetSubstate(block uint64, tx int) *Substate {
 }
 
 func (db *SubstateDB) GetBlockSubstates(block uint64) map[int]*Substate {
+	// Without tx list, all blocks and transactions will be loaded.
+	config := &SubstateTaskConfig{TxListEnabled: false}
+	return db.GetBlockSubstatesWithTxList(block, config)
+}
+
+func (db *SubstateDB) GetBlockSubstatesWithTxList(block uint64, config *SubstateTaskConfig) map[int]*Substate {
 	var err error
 
 	txSubstateMap := make(map[int]*Substate)
+
+	if !config.IsBlockListed(block) {
+		return txSubstateMap
+	}
 
 	prefix := Stage1SubstateBlockPrefix(block)
 
 	iter := db.backend.NewIterator(prefix, nil)
 	for iter.Next() {
 		key := iter.Key()
-		value := iter.Value()
 
 		b, tx, err := DecodeStage1SubstateKey(key)
 		if err != nil {
@@ -191,6 +200,12 @@ func (db *SubstateDB) GetBlockSubstates(block uint64) map[int]*Substate {
 		if block != b {
 			panic(fmt.Errorf("record-replay: GetBlockSubstates(%v) iterated substates from block %v", block, b))
 		}
+
+		if !config.IsTxListed(block, tx) {
+			continue
+		}
+
+		value := iter.Value()
 
 		hashedSubstate := &Substate{}
 		err = proto.Unmarshal(value, hashedSubstate)
