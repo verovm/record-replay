@@ -20,16 +20,60 @@ type SubstateTaskConfig struct {
 	SkipTransferTxs bool
 	SkipCallTxs     bool
 	SkipCreateTxs   bool
+
+	TxListEnabled bool
+	TxListPath    string
+	BlockSet      map[uint64]struct{}     // list of blocks from tx list file
+	TxSet         map[TxListElem]struct{} // list of block,tx indexes from tx list file
+	TxBlockSet    map[uint64]struct{}     // list of blocks from tx set
 }
 
 func NewSubstateTaskConfigCli(ctx *cli.Context) *SubstateTaskConfig {
-	return &SubstateTaskConfig{
+	config := &SubstateTaskConfig{
 		Workers: ctx.Int(WorkersFlag.Name),
 
 		SkipTransferTxs: ctx.Bool(SkipTransferTxsFlag.Name),
 		SkipCallTxs:     ctx.Bool(SkipCallTxsFlag.Name),
 		SkipCreateTxs:   ctx.Bool(SkipCreateTxsFlag.Name),
 	}
+
+	config.TxListPath = ctx.Path(TxListFlag.Name)
+	config.TxListEnabled = (config.TxListPath != "")
+	if config.TxListEnabled {
+		config.BlockSet, config.TxSet = ParseTxList(config.TxListPath)
+		config.TxBlockSet = make(map[uint64]struct{})
+		for elem := range config.TxSet {
+			config.TxBlockSet[elem.block] = struct{}{}
+		}
+	}
+
+	return config
+}
+
+func (config *SubstateTaskConfig) IsBlockListed(block uint64) bool {
+	if !config.TxListEnabled {
+		return true
+	}
+	if _, has := config.BlockSet[block]; has {
+		return true
+	}
+	if _, has := config.TxBlockSet[block]; has {
+		return true
+	}
+	return false
+}
+
+func (config *SubstateTaskConfig) IsTxListed(block uint64, tx int) bool {
+	if !config.TxListEnabled {
+		return true
+	}
+	if _, has := config.BlockSet[block]; has {
+		return true
+	}
+	if _, has := config.TxSet[TxListElem{block, tx}]; has {
+		return true
+	}
+	return false
 }
 
 type SubstateTaskPool struct {
@@ -79,8 +123,14 @@ func (pool *SubstateTaskPool) NumWorkers() int {
 
 // ExecuteBlock function iterates on substates of a given block call TaskFunc
 func (pool *SubstateTaskPool) ExecuteBlock(block uint64) (numTx int64, err error) {
+	isBlockListed := pool.Config.IsBlockListed(block)
+	if !isBlockListed {
+		return 0, nil
+	}
+
 	for tx, substate := range pool.DB.GetBlockSubstates(block) {
-		skipTx := false
+		isTxListed := pool.Config.IsTxListed(block, tx)
+		skipTx := !isTxListed
 		to := substate.TxMessage.To
 
 		if !skipTx && pool.Config.SkipTransferTxs && to != nil {

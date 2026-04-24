@@ -34,6 +34,7 @@ var ReplayForkCommand = &cli.Command{
 		HardForkFlag,
 		research.SubstateDirFlag,
 		research.BlockSegmentFlag,
+		research.TxListFlag,
 	},
 	Description: `
 substate-cli replay executes transactions in the given block segment

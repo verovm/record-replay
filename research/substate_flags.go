@@ -1,7 +1,9 @@
 package research
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,6 +58,10 @@ var (
 		Name:     "block-segment-list",
 		Usage:    "One or more block segments, e.g. '0-1M,1000-1100k,1100001,1_100_002-1_101_000'",
 		Required: true,
+	}
+	TxListFlag = &cli.PathFlag{
+		Name:  "tx-list",
+		Usage: "Path of txt file with block numbers (e.g., 1001) and/or tx indexes (e.g., 1001_0 or 1001,1) to replay",
 	}
 )
 
@@ -122,4 +128,52 @@ func ParseBlockSegmentList(s string) (BlockSegmentList, error) {
 	}
 
 	return br, nil
+}
+
+type TxListElem struct {
+	block uint64
+	tx    int
+}
+
+func ParseTxList(listPath string) (map[uint64]struct{}, map[TxListElem]struct{}) {
+	blockSet := make(map[uint64]struct{})
+	txSet := make(map[TxListElem]struct{})
+
+	listFile, err := os.Open(listPath)
+	if err != nil {
+		panic(err)
+	}
+	defer listFile.Close()
+
+	sc := bufio.NewScanner(listFile)
+	for sc.Scan() {
+		line := sc.Text()
+		s := strings.TrimSpace(line)
+		s = strings.ReplaceAll(s, "_", " ")
+		s = strings.ReplaceAll(s, ",", " ")
+		ts := strings.Fields(s)
+		switch len(ts) {
+		case 1:
+			block, err := strconv.ParseUint(ts[0], 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			blockSet[block] = struct{}{}
+		case 2:
+			// TODO: parse block and tx
+			block, err := strconv.ParseUint(ts[0], 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			tx, err := strconv.ParseInt(ts[1], 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			txSet[TxListElem{block, int(tx)}] = struct{}{}
+		}
+	}
+	fmt.Printf("record-replay: --tx-list=%s\n", listPath)
+	fmt.Printf("record-replay: %v block numbers, %v tx indexes in tx list\n", len(blockSet), len(txSet))
+
+	return blockSet, txSet
 }

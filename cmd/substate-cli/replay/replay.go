@@ -29,6 +29,7 @@ var ReplayCommand = &cli.Command{
 		research.SkipCreateTxsFlag,
 		research.SubstateDirFlag,
 		research.BlockSegmentFlag,
+		research.TxListFlag,
 	},
 	Description: `
 substate-cli replay executes transactions in the given block segment
