@@ -24,6 +24,8 @@ Introduce new `--substate-db` option which receives `"backend,URI"` parameter. D
 --substate-db "postgres,user=pqgotest dbname=pqgotest sslmode=verify-full"
 ```
 
+Check examples of [github.com/xo/dburl](https://github.com/xo/dburl) which supports SQL protocols with a standardized URL scheme.
+
 
 
 ## New substate DB layout
