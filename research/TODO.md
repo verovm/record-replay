@@ -11,6 +11,7 @@ Priority: high
 
 Goleveldb is not actively maintained. It is not compatible with the official LevelDB C++ implementation.
 * Option 1: Embedded KVDB. The main advantage is straightforward migration from Goleveldb to a new KVDB backend. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language. Erigon (Turbo-Geth in the past) uses MDBX (a derivative of LMDB) which has good Go and Python libraries.
+  * Geth's `func PreexistingDatabase` checks whether the preexisting is Goleveldb or Pebble.
 * Option 2: RDBMS and SQL. The main advantage is portability and compatibility because major languages have SQL libraries. If a new RDBMS backend supports concurrency very well, multiple recorders and/or replayers can run in parallel on multicore and/or distributed systems. Embedded RDBMS such as SQLite3, or remote RDBMS such as MySQL, MariaDB, and PostgreSQL.
 * Option 3: a DB server with support of public APIs such as REST, GraphQL, gRPC, etc.
 
@@ -35,6 +36,7 @@ Priority: NOT recommended!
 * For example, get tx types, account addresses, code hashes, and init code hashes before substate deserialization. This requires major changes in the design and implementation of hashed and unhashed substates.
 * Not sure whether changing substate DB layout for metadata benefits the overall off-the-chain testing framework. Changing the DB layout breaks the replayer's backward compatibility. This requires upgrading the entire DB or recording billions of substates again.
 * With Protobuf and new DB backends with better portability with other languages, it will become much simpler to write client programs to iterate all substates and collect metadata. This is a more recommended way as it preserves forward and backward compatibilities of substate DB.
+  * `--tx-list` option has been added to receive block numbers and transaction indexes to test from the client programs.
 
 
 
