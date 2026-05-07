@@ -13,6 +13,8 @@ Goleveldb is not actively maintained. It is not compatible with the official Lev
 * Option 1: Embedded KVDB. The main advantage is straightforward migration from Goleveldb to a new KVDB backend. Geth changed its backend from Goleveldb to Pebble, a RocksDB implementation in the Go language. Erigon (Turbo-Geth in the past) uses MDBX (a derivative of LMDB) which has good Go and Python libraries.
   * Geth's `func PreexistingDatabase` checks whether the preexisting is Goleveldb or Pebble.
 * Option 2: RDBMS and SQL. The main advantage is portability and compatibility because major languages have SQL libraries. If a new RDBMS backend supports concurrency very well, multiple recorders and/or replayers can run in parallel on multicore and/or distributed systems. Embedded RDBMS such as SQLite3, or remote RDBMS such as MySQL, MariaDB, and PostgreSQL.
+  * Some DB engines such as DuckDB and TileDB support remote RDB protocols.
+  * Some RDBMS uses KVDB as backend DB engines. For example, MyRocks of MariaDB, and Pebble for CockroachDB.
 * Option 3: a DB server with support of public APIs such as REST, GraphQL, gRPC, etc.
 
 Introduce new `--substate-db` option which receives `"backend,URI"` parameter. Deprecate `--substatedir` flag in favor of the new `--substate-db`. For example:
