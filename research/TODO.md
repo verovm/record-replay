@@ -59,10 +59,17 @@ There are two options when implement recorder/replayer based on other Ethereum e
 
 Erigon and Reth are optimized for time and space to maintain EL nodes compared to other clients including Geth, Nethermind, and Besu.
 
-Erigon (Turbo-Geth) is based on Geth but much faster in full sync than other clients with smaller archive node sizes.  Erigon embedded its own consensus layer client called Caplin used when `--internalcl` option is given.
-* Option 1: `erigon import` can be used. The current latest versions of Erigon, 2.58.2 and 2.59.0, suffer segmentation faults with `erigon import` command with the initial 100k blocks (`1-1000000`).
+Erigon (formerly named Turbo-Geth) is based on Geth but is much faster in full sync than other clients with smaller archive node sizes.  Erigon embedded its own consensus layer client called Caplin used when `--internalcl` option is given. Erigon introduced parallel EVM execution based on Block-STM, which became the default since v3.5. Therefore, it is important to check the correctness of the recorder with Block-STM, or disable Block-STM for the recorder for a simpler implementation as a trade-off.
+* Option 1: `erigon import` can be used.
 * Option 2: Erigon archive node is much smaller and faster, taking about a week to sync 15M blocks. Erigon supports `debug_traceBlockByNumber`.
 
-Reth is a recently started project to implement EL client in Rust programming language. Reth manages its EVM implementation as the external revm crate, which needs some time to work on manual instrumentation in revm and modify reth build config to use the instrumented revm. Reth is still a beta version. Reth supports JSON RPC APIs and EVM instruction tracers similar to the Geth-style. If Reth defines all JSON RPC APIs and EVM tracers in the reth crate itself, we may not need to spend time for instrumenting revm.
-* Option 1: `reth import` command can be used. Need to test whether the latest Reth has no problem running `reth import`.
+Reth is a newer project to implement an EL client in the Rust programming language. Reth manages its EVM implementation as the external revm crate, which needs some time to work on manual instrumentation in revm and modify reth build config to use the instrumented revm. Reth supports JSON RPC APIs and EVM instruction tracers similar to the Geth-style. If Reth defines all JSON RPC APIs and EVM tracers in the reth crate itself, we may not need to spend time instrumenting revm.
+* Option 1: `reth import` command can be used.
 * Option 2: Reth supports Geth-style JSON RPC APIs and EVM tracers for `debug_traceBlockByNumber`.
+
+
+
+## New performance metric based on gas usage
+Priority: moderate
+
+Ethereum clients report performance metrics based on gas usage, e.g., Mgas/s. Adding `total gas` and `Mgas/s` to the replayer output will be useful for performance measurement and validation of the replay outputs.
