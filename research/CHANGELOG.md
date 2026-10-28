@@ -14,6 +14,14 @@ Check [README.md](./README.md) for docs.
 * `geth record-substate` supports asynchronous DB write to the substate DB with `--async-db-write` option by default. To disable async DB write, pass `--async-db-write=false`.
 * `substate-cli replay --tx-list` option to fine-grained control on specifying which blocks and transactions to replay within the block segment.
 
+### Faithful replay check
+* rr0.5.1 recorder, rr0.5.1 replayer
+  * `--block-segment 20_000_000-22_000_000` (`--block-segment 0-20M`): TBD
+  * `--block-segment 22_000_000-22,431,083` (before Pectra hard fork): TBD 
+* rr0.5.1 recorder, rr0.5.0 replayer
+  * `--block-segment 20_000_000-22_000_000` (`--block-segment 0-20M`): TBD
+  * `--block-segment 22_000_000-22,431,083` (before Pectra hard fork): TBD 
+
 
 
 ## record-replay 0.5.0 release note
@@ -34,13 +42,12 @@ Check [README.md](./README.md) for docs.
 
 ### Faithful replay check
 * rr0.5.0 recorder, rr0.5.0 replayer
-  * `--block-segment 1-19_000_000` (`--block-segment 0-19M`): OK
-  * `--block-segment 19_000_001-19_500_000` (`--block-segment 19000-19500k`): OK
+  * `--block-segment 1-20_000_000` (`--block-segment 0-20M`): OK
 * rr0.4.2 recorder, rr0.5.0 replayer (backward compatibility)
   * `--block-segment 1-18_000_000` (`--block-segment 0-18M`): OK
 * rr0.5.0 recorder, rr0.4.2 replayer (forward compatibility)
   * `--block-segment 1-19_000_000` (`--block-segment 0-19M`): OK
-  * `--block-segment 19_000_001-19_426_586`: OK
+  * `--block-segment 19_000_001-19_426_586` (before Dencun hard fork): OK
 
 
 
