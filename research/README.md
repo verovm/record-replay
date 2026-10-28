@@ -106,18 +106,30 @@ DESCRIPTION:
 
 OPTIONS:
    
-    --block-segment value         
-          Single block segment (e.g. 1001, 1_001, 1_001-2_000, 1-2k, 1-2M)
-    --skip-call-txs                (default: false)
-          Skip executing CALL transactions to accounts with contract bytecode
-    --skip-create-txs              (default: false)
-          Skip executing CREATE transactions
-    --skip-transfer-txs            (default: false)
-          Skip executing transactions that only transfer ETH
-    --substatedir value, --substate-db value (default: "substate.ethereum")
-          Data directory for substate recorder/replayer
-    --workers value                (default: 4)
-          Number of worker threads (goroutines), 0 for current CPU physical cores
+          --workers value                     (default: 4)                      
+                Number of worker threads (goroutines), 0 for current CPU physical cores
+   
+          --skip-transfer-txs                 (default: false)                  
+                Skip executing transactions that only transfer ETH
+   
+          --skip-call-txs                     (default: false)                  
+                Skip executing CALL transactions to accounts with contract bytecode
+   
+          --skip-create-txs                   (default: false)                  
+                Skip executing CREATE transactions
+   
+          --substatedir value, --substate-db value (default: "substate.ethereum")    
+                Data directory for substate recorder/replayer
+   
+          --block-segment value                                                 
+                Single block segment (e.g. 1001, 1_001, 1_001-2_000, 1-2k, 1-2M)
+   
+          --tx-list value                                                       
+                Path of txt file with block numbers (e.g., 1001) and/or tx indexes (e.g., 1001_0
+                or 1001,1) to replay
+   
+          --help, -h                          (default: false)                  
+                show help
 ```
 
 For example, if you want 32 workers to replay transactions except CREATE transactions:
@@ -133,6 +145,13 @@ If you want to replay only CALL transactions and skip the other types of transac
 If you want to use a substate DB other than `substate.ethereum` (e.g. `/path/to/substate_db`):
 ```bash
 ./substate-cli replay --block-segment 1-2M --substatedir /path/to/substate_db
+```
+
+If you want to execute a set of specific blocks and/or transactions, create a TX list text file and pass it to the `--tx-list` option. For example, if you want to execute all transactions in block 1,500,000 and the first and third transactions in block 16,000,001, create `test_set.txt` with the following content and pass `--tx-list test_set.txt` to the `replay` command:
+```
+1_500_000
+1_600_000,0
+1_600_000,2
 ```
 
 ### Hard-fork assessment
